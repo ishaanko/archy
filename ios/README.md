@@ -4,7 +4,7 @@ One SwiftUI app, iOS 26+. Tabs: Home, Scan, Insole, Train.
 
 - `Archy/App`: entry point, root view, tab router.
 - `Archy/Design`: tokens (colors, type, spacing, motion) and shared components. Mirrors `sim/src/theme.css`.
-- One folder per feature: `Onboarding`, `Home`, `Measure`, `Scan`, `Insole`, `Space`, `Train`, `Settings`.
+- One folder per feature: `Onboarding`, `Home`, `Measure`, `Scan`, `Insole` (with `Space` for gravity modes and the research list), `Train`, `Settings`.
 
 The Xcode project is generated from `project.yml` with sources as synced folders, so adding files needs no regeneration. After editing `project.yml`, run `xcodegen`.
 
@@ -23,7 +23,8 @@ Debug launch arguments (Scheme > Run > Arguments):
 ## Verify
 
 ```sh
-swift test   # model and persistence tests on the Mac
+swift test          # model and persistence tests on the Mac
+scripts/e2e.sh dark # first-run walk through every tab; screenshots land in e2e-artifacts/dark/
 xcodebuild -project Archy.xcodeproj -scheme Archy -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/ArchyDD CODE_SIGNING_ALLOWED=NO build
 ```
