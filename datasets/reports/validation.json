@@ -1,0 +1,3550 @@
+[
+ {
+  "key": "schuster-scans",
+  "title": "Foot shape-function model data (Schuster, 100 people, PLY scans)",
+  "license": "CC0 1.0 (API: cc-zero)",
+  "doi": "10.5061/dryad.g4f4qrfwt",
+  "files": 201,
+  "bytes": 920367116,
+  "hash_algo": "md5",
+  "hash_pass": 201,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [
+   "treadmill_data.mat"
+  ],
+  "loadable": 200,
+  "loadable_of": 200,
+  "load_failures": [],
+  "labels": {
+   "fBW_L": 1,
+   "mBW_L": 1,
+   "fBW_R": 93,
+   "mBW_R": 93,
+   "fBW_Lr": 6,
+   "mBW_Lr": 6
+  },
+  "stats": {
+   "units_guess": "mm",
+   "foot_length_pca": {
+    "min": 239.79,
+    "median": 266.84,
+    "max": 316.28
+   },
+   "vertices": {
+    "min": 30898,
+    "median": 33638.5,
+    "max": 35998
+   },
+   "faces": {
+    "min": 61792,
+    "median": 67273.0,
+    "max": 71992
+   },
+   "watertight": 200,
+   "in_220_300mm": 198,
+   "participants": 100
+  },
+  "notes": [
+   "Filename suffix: R = right foot as scanned; Lr = LEFT-dominant participant's scan, reflected about its length axis so it looks like a right foot (per README); L (only 001_*) = a left foot that README does not explain and which is NOT mirrored. Mirror 001 before pooling with the others.",
+   "No arch labels: all participants healthy. mBW vs fBW pairs give an arch-drop-under-load measure."
+  ],
+  "per_file": [
+   {
+    "file": "001_fBW_L.ply",
+    "vertices": 32558,
+    "faces": 65112,
+    "extents_aabb": [
+     243.31,
+     100.28,
+     125.04
+    ],
+    "extents_pca": [
+     255.32,
+     145.41,
+     87.69
+    ],
+    "watertight": true
+   },
+   {
+    "file": "001_mBW_L.ply",
+    "vertices": 33383,
+    "faces": 66762,
+    "extents_aabb": [
+     236.8,
+     93.35,
+     125.03
+    ],
+    "extents_pca": [
+     254.48,
+     140.31,
+     88.68
+    ],
+    "watertight": true
+   },
+   {
+    "file": "002_fBW_R.ply",
+    "vertices": 34639,
+    "faces": 69274,
+    "extents_aabb": [
+     233.57,
+     92.59,
+     125.02
+    ],
+    "extents_pca": [
+     256.15,
+     145.76,
+     87.11
+    ],
+    "watertight": true
+   },
+   {
+    "file": "002_mBW_R.ply",
+    "vertices": 34792,
+    "faces": 69580,
+    "extents_aabb": [
+     228.06,
+     88.65,
+     125.03
+    ],
+    "extents_pca": [
+     255.23,
+     140.92,
+     87.5
+    ],
+    "watertight": true
+   },
+   {
+    "file": "003_fBW_R.ply",
+    "vertices": 32041,
+    "faces": 64078,
+    "extents_aabb": [
+     238.01,
+     93.17,
+     125.01
+    ],
+    "extents_pca": [
+     249.39,
+     144.13,
+     88.41
+    ],
+    "watertight": true
+   },
+   {
+    "file": "003_mBW_R.ply",
+    "vertices": 31818,
+    "faces": 63632,
+    "extents_aabb": [
+     233.29,
+     89.74,
+     125.01
+    ],
+    "extents_pca": [
+     259.0,
+     134.36,
+     83.91
+    ],
+    "watertight": true
+   },
+   {
+    "file": "004_fBW_R.ply",
+    "vertices": 33403,
+    "faces": 66802,
+    "extents_aabb": [
+     282.27,
+     104.96,
+     125.02
+    ],
+    "extents_pca": [
+     293.6,
+     143.28,
+     101.23
+    ],
+    "watertight": true
+   },
+   {
+    "file": "004_mBW_R.ply",
+    "vertices": 33004,
+    "faces": 66004,
+    "extents_aabb": [
+     278.29,
+     101.03,
+     125.01
+    ],
+    "extents_pca": [
+     291.44,
+     138.19,
+     99.48
+    ],
+    "watertight": true
+   },
+   {
+    "file": "005_fBW_R.ply",
+    "vertices": 33320,
+    "faces": 66636,
+    "extents_aabb": [
+     245.5,
+     92.09,
+     125.01
+    ],
+    "extents_pca": [
+     265.99,
+     145.88,
+     87.49
+    ],
+    "watertight": true
+   },
+   {
+    "file": "005_mBW_R.ply",
+    "vertices": 33885,
+    "faces": 67766,
+    "extents_aabb": [
+     240.4,
+     89.79,
+     125.02
+    ],
+    "extents_pca": [
+     260.26,
+     143.83,
+     86.01
+    ],
+    "watertight": true
+   },
+   {
+    "file": "006_fBW_R.ply",
+    "vertices": 32014,
+    "faces": 64024,
+    "extents_aabb": [
+     274.51,
+     114.97,
+     125.01
+    ],
+    "extents_pca": [
+     271.12,
+     148.47,
+     100.86
+    ],
+    "watertight": true
+   },
+   {
+    "file": "006_mBW_R.ply",
+    "vertices": 35443,
+    "faces": 70882,
+    "extents_aabb": [
+     271.58,
+     102.45,
+     125.02
+    ],
+    "extents_pca": [
+     274.88,
+     139.96,
+     99.03
+    ],
+    "watertight": true
+   },
+   {
+    "file": "007_fBW_R.ply",
+    "vertices": 32402,
+    "faces": 64800,
+    "extents_aabb": [
+     265.3,
+     115.17,
+     125.0
+    ],
+    "extents_pca": [
+     270.61,
+     144.02,
+     99.37
+    ],
+    "watertight": true
+   },
+   {
+    "file": "007_mBW_R.ply",
+    "vertices": 33407,
+    "faces": 66810,
+    "extents_aabb": [
+     258.58,
+     106.81,
+     125.0
+    ],
+    "extents_pca": [
+     271.43,
+     138.65,
+     97.65
+    ],
+    "watertight": true
+   },
+   {
+    "file": "008_fBW_R.ply",
+    "vertices": 31179,
+    "faces": 62354,
+    "extents_aabb": [
+     274.62,
+     114.64,
+     125.01
+    ],
+    "extents_pca": [
+     284.09,
+     147.06,
+     97.72
+    ],
+    "watertight": true
+   },
+   {
+    "file": "008_mBW_R.ply",
+    "vertices": 33344,
+    "faces": 66684,
+    "extents_aabb": [
+     267.47,
+     96.94,
+     125.02
+    ],
+    "extents_pca": [
+     281.11,
+     142.59,
+     95.1
+    ],
+    "watertight": true
+   },
+   {
+    "file": "009_fBW_R.ply",
+    "vertices": 31875,
+    "faces": 63746,
+    "extents_aabb": [
+     275.47,
+     110.13,
+     125.01
+    ],
+    "extents_pca": [
+     266.28,
+     147.62,
+     101.11
+    ],
+    "watertight": true
+   },
+   {
+    "file": "009_mBW_R.ply",
+    "vertices": 32490,
+    "faces": 64972,
+    "extents_aabb": [
+     271.0,
+     102.73,
+     125.01
+    ],
+    "extents_pca": [
+     268.2,
+     143.09,
+     97.13
+    ],
+    "watertight": true
+   },
+   {
+    "file": "010_fBW_R.ply",
+    "vertices": 34115,
+    "faces": 68226,
+    "extents_aabb": [
+     251.3,
+     102.92,
+     125.01
+    ],
+    "extents_pca": [
+     265.84,
+     143.75,
+     98.58
+    ],
+    "watertight": true
+   },
+   {
+    "file": "010_mBW_R.ply",
+    "vertices": 33794,
+    "faces": 67584,
+    "extents_aabb": [
+     249.63,
+     100.4,
+     125.03
+    ],
+    "extents_pca": [
+     268.13,
+     140.16,
+     98.61
+    ],
+    "watertight": true
+   },
+   {
+    "file": "011_fBW_R.ply",
+    "vertices": 33064,
+    "faces": 66124,
+    "extents_aabb": [
+     258.21,
+     91.05,
+     125.01
+    ],
+    "extents_pca": [
+     266.5,
+     144.93,
+     88.37
+    ],
+    "watertight": true
+   },
+   {
+    "file": "011_mBW_R.ply",
+    "vertices": 33058,
+    "faces": 66112,
+    "extents_aabb": [
+     255.07,
+     89.13,
+     125.02
+    ],
+    "extents_pca": [
+     272.37,
+     139.48,
+     88.16
+    ],
+    "watertight": true
+   },
+   {
+    "file": "012_fBW_R.ply",
+    "vertices": 34853,
+    "faces": 69702,
+    "extents_aabb": [
+     275.71,
+     106.37,
+     125.01
+    ],
+    "extents_pca": [
+     289.39,
+     143.44,
+     100.39
+    ],
+    "watertight": true
+   },
+   {
+    "file": "012_mBW_R.ply",
+    "vertices": 34772,
+    "faces": 69540,
+    "extents_aabb": [
+     271.5,
+     102.83,
+     125.02
+    ],
+    "extents_pca": [
+     288.54,
+     139.83,
+     98.0
+    ],
+    "watertight": true
+   },
+   {
+    "file": "013_fBW_R.ply",
+    "vertices": 34376,
+    "faces": 68748,
+    "extents_aabb": [
+     240.88,
+     94.12,
+     125.02
+    ],
+    "extents_pca": [
+     265.04,
+     143.03,
+     90.68
+    ],
+    "watertight": true
+   },
+   {
+    "file": "013_mBW_R.ply",
+    "vertices": 34100,
+    "faces": 68196,
+    "extents_aabb": [
+     238.15,
+     90.18,
+     125.02
+    ],
+    "extents_pca": [
+     252.57,
+     144.52,
+     89.92
+    ],
+    "watertight": true
+   },
+   {
+    "file": "014_fBW_R.ply",
+    "vertices": 33028,
+    "faces": 66052,
+    "extents_aabb": [
+     242.71,
+     88.38,
+     125.01
+    ],
+    "extents_pca": [
+     265.17,
+     141.27,
+     87.44
+    ],
+    "watertight": true
+   },
+   {
+    "file": "014_mBW_R.ply",
+    "vertices": 32703,
+    "faces": 65402,
+    "extents_aabb": [
+     238.15,
+     86.78,
+     125.01
+    ],
+    "extents_pca": [
+     252.96,
+     141.14,
+     85.78
+    ],
+    "watertight": true
+   },
+   {
+    "file": "015_fBW_R.ply",
+    "vertices": 31884,
+    "faces": 63764,
+    "extents_aabb": [
+     270.71,
+     111.37,
+     125.0
+    ],
+    "extents_pca": [
+     268.99,
+     145.39,
+     98.95
+    ],
+    "watertight": true
+   },
+   {
+    "file": "015_mBW_R.ply",
+    "vertices": 32951,
+    "faces": 65898,
+    "extents_aabb": [
+     265.54,
+     98.81,
+     125.01
+    ],
+    "extents_pca": [
+     276.06,
+     140.03,
+     97.64
+    ],
+    "watertight": true
+   },
+   {
+    "file": "016_fBW_R.ply",
+    "vertices": 34036,
+    "faces": 68068,
+    "extents_aabb": [
+     236.1,
+     93.6,
+     125.02
+    ],
+    "extents_pca": [
+     245.94,
+     145.3,
+     92.55
+    ],
+    "watertight": true
+   },
+   {
+    "file": "016_mBW_R.ply",
+    "vertices": 34221,
+    "faces": 68438,
+    "extents_aabb": [
+     229.12,
+     90.05,
+     125.02
+    ],
+    "extents_pca": [
+     250.15,
+     138.97,
+     89.02
+    ],
+    "watertight": true
+   },
+   {
+    "file": "017_fBW_R.ply",
+    "vertices": 33694,
+    "faces": 67384,
+    "extents_aabb": [
+     264.75,
+     101.77,
+     125.01
+    ],
+    "extents_pca": [
+     276.71,
+     145.05,
+     98.13
+    ],
+    "watertight": true
+   },
+   {
+    "file": "017_mBW_R.ply",
+    "vertices": 33790,
+    "faces": 67576,
+    "extents_aabb": [
+     257.49,
+     97.64,
+     125.02
+    ],
+    "extents_pca": [
+     266.33,
+     142.26,
+     96.07
+    ],
+    "watertight": true
+   },
+   {
+    "file": "018_fBW_R.ply",
+    "vertices": 33210,
+    "faces": 66416,
+    "extents_aabb": [
+     260.09,
+     100.3,
+     125.03
+    ],
+    "extents_pca": [
+     267.32,
+     143.49,
+     96.45
+    ],
+    "watertight": true
+   },
+   {
+    "file": "018_mBW_R.ply",
+    "vertices": 33546,
+    "faces": 67088,
+    "extents_aabb": [
+     255.26,
+     97.01,
+     125.03
+    ],
+    "extents_pca": [
+     267.62,
+     140.44,
+     93.91
+    ],
+    "watertight": true
+   },
+   {
+    "file": "019_fBW_R.ply",
+    "vertices": 33536,
+    "faces": 67068,
+    "extents_aabb": [
+     277.94,
+     120.23,
+     125.01
+    ],
+    "extents_pca": [
+     292.84,
+     148.24,
+     105.47
+    ],
+    "watertight": true
+   },
+   {
+    "file": "019_mBW_R.ply",
+    "vertices": 35301,
+    "faces": 70598,
+    "extents_aabb": [
+     271.97,
+     105.6,
+     125.03
+    ],
+    "extents_pca": [
+     285.03,
+     143.32,
+     103.11
+    ],
+    "watertight": true
+   },
+   {
+    "file": "020_fBW_R.ply",
+    "vertices": 32983,
+    "faces": 65962,
+    "extents_aabb": [
+     272.75,
+     112.18,
+     125.01
+    ],
+    "extents_pca": [
+     271.46,
+     147.4,
+     98.88
+    ],
+    "watertight": true
+   },
+   {
+    "file": "020_mBW_R.ply",
+    "vertices": 33998,
+    "faces": 67992,
+    "extents_aabb": [
+     264.92,
+     101.55,
+     125.02
+    ],
+    "extents_pca": [
+     277.64,
+     140.78,
+     95.95
+    ],
+    "watertight": true
+   },
+   {
+    "file": "022_fBW_R.ply",
+    "vertices": 34354,
+    "faces": 68704,
+    "extents_aabb": [
+     253.02,
+     105.51,
+     125.0
+    ],
+    "extents_pca": [
+     264.88,
+     144.35,
+     98.7
+    ],
+    "watertight": true
+   },
+   {
+    "file": "022_mBW_R.ply",
+    "vertices": 35113,
+    "faces": 70222,
+    "extents_aabb": [
+     247.09,
+     101.02,
+     125.01
+    ],
+    "extents_pca": [
+     267.1,
+     140.53,
+     101.16
+    ],
+    "watertight": true
+   },
+   {
+    "file": "023_fBW_R.ply",
+    "vertices": 33634,
+    "faces": 67264,
+    "extents_aabb": [
+     264.32,
+     110.51,
+     125.01
+    ],
+    "extents_pca": [
+     270.97,
+     147.88,
+     99.44
+    ],
+    "watertight": true
+   },
+   {
+    "file": "023_mBW_R.ply",
+    "vertices": 34951,
+    "faces": 69898,
+    "extents_aabb": [
+     258.28,
+     102.53,
+     125.01
+    ],
+    "extents_pca": [
+     277.83,
+     142.38,
+     102.62
+    ],
+    "watertight": true
+   },
+   {
+    "file": "024_fBW_R.ply",
+    "vertices": 33738,
+    "faces": 67472,
+    "extents_aabb": [
+     247.2,
+     86.51,
+     125.01
+    ],
+    "extents_pca": [
+     263.67,
+     143.17,
+     85.37
+    ],
+    "watertight": true
+   },
+   {
+    "file": "024_mBW_R.ply",
+    "vertices": 33668,
+    "faces": 67332,
+    "extents_aabb": [
+     242.28,
+     85.41,
+     125.02
+    ],
+    "extents_pca": [
+     262.38,
+     140.72,
+     84.69
+    ],
+    "watertight": true
+   },
+   {
+    "file": "025_fBW_R.ply",
+    "vertices": 33852,
+    "faces": 67700,
+    "extents_aabb": [
+     235.9,
+     97.28,
+     125.01
+    ],
+    "extents_pca": [
+     256.69,
+     141.02,
+     93.56
+    ],
+    "watertight": true
+   },
+   {
+    "file": "025_mBW_R.ply",
+    "vertices": 34258,
+    "faces": 68512,
+    "extents_aabb": [
+     228.29,
+     91.26,
+     125.01
+    ],
+    "extents_pca": [
+     248.4,
+     139.88,
+     89.1
+    ],
+    "watertight": true
+   },
+   {
+    "file": "026_fBW_R.ply",
+    "vertices": 32857,
+    "faces": 65710,
+    "extents_aabb": [
+     271.75,
+     109.81,
+     125.01
+    ],
+    "extents_pca": [
+     284.0,
+     146.42,
+     96.9
+    ],
+    "watertight": true
+   },
+   {
+    "file": "026_mBW_R.ply",
+    "vertices": 33949,
+    "faces": 67894,
+    "extents_aabb": [
+     263.17,
+     98.89,
+     125.01
+    ],
+    "extents_pca": [
+     275.0,
+     143.55,
+     95.06
+    ],
+    "watertight": true
+   },
+   {
+    "file": "027_fBW_R.ply",
+    "vertices": 33979,
+    "faces": 67954,
+    "extents_aabb": [
+     250.2,
+     93.59,
+     125.01
+    ],
+    "extents_pca": [
+     269.37,
+     145.34,
+     87.26
+    ],
+    "watertight": true
+   },
+   {
+    "file": "027_mBW_R.ply",
+    "vertices": 34170,
+    "faces": 68336,
+    "extents_aabb": [
+     244.37,
+     89.69,
+     125.02
+    ],
+    "extents_pca": [
+     264.03,
+     141.09,
+     86.84
+    ],
+    "watertight": true
+   },
+   {
+    "file": "028_fBW_Lr.ply",
+    "vertices": 32975,
+    "faces": 65946,
+    "extents_aabb": [
+     305.6,
+     107.68,
+     124.99
+    ],
+    "extents_pca": [
+     316.28,
+     145.85,
+     103.7
+    ],
+    "watertight": true
+   },
+   {
+    "file": "028_mBW_Lr.ply",
+    "vertices": 33279,
+    "faces": 66554,
+    "extents_aabb": [
+     301.01,
+     100.93,
+     125.03
+    ],
+    "extents_pca": [
+     300.48,
+     144.26,
+     99.01
+    ],
+    "watertight": true
+   },
+   {
+    "file": "029_fBW_R.ply",
+    "vertices": 34025,
+    "faces": 68046,
+    "extents_aabb": [
+     244.14,
+     100.18,
+     125.02
+    ],
+    "extents_pca": [
+     264.18,
+     146.48,
+     88.41
+    ],
+    "watertight": true
+   },
+   {
+    "file": "029_mBW_R.ply",
+    "vertices": 34884,
+    "faces": 69764,
+    "extents_aabb": [
+     240.49,
+     90.68,
+     125.02
+    ],
+    "extents_pca": [
+     258.73,
+     142.34,
+     88.06
+    ],
+    "watertight": true
+   },
+   {
+    "file": "031_fBW_R.ply",
+    "vertices": 32151,
+    "faces": 64298,
+    "extents_aabb": [
+     268.99,
+     113.73,
+     125.01
+    ],
+    "extents_pca": [
+     280.74,
+     144.1,
+     98.62
+    ],
+    "watertight": true
+   },
+   {
+    "file": "031_mBW_R.ply",
+    "vertices": 33454,
+    "faces": 66904,
+    "extents_aabb": [
+     261.35,
+     99.37,
+     125.0
+    ],
+    "extents_pca": [
+     270.41,
+     139.85,
+     94.84
+    ],
+    "watertight": true
+   },
+   {
+    "file": "032_fBW_R.ply",
+    "vertices": 32385,
+    "faces": 64766,
+    "extents_aabb": [
+     261.77,
+     115.24,
+     125.01
+    ],
+    "extents_pca": [
+     270.08,
+     148.86,
+     100.21
+    ],
+    "watertight": true
+   },
+   {
+    "file": "032_mBW_R.ply",
+    "vertices": 34527,
+    "faces": 69050,
+    "extents_aabb": [
+     252.21,
+     100.18,
+     125.02
+    ],
+    "extents_pca": [
+     270.34,
+     140.95,
+     97.6
+    ],
+    "watertight": true
+   },
+   {
+    "file": "033_fBW_R.ply",
+    "vertices": 33153,
+    "faces": 66302,
+    "extents_aabb": [
+     263.74,
+     103.1,
+     125.01
+    ],
+    "extents_pca": [
+     270.99,
+     145.08,
+     98.3
+    ],
+    "watertight": true
+   },
+   {
+    "file": "033_mBW_R.ply",
+    "vertices": 33994,
+    "faces": 67984,
+    "extents_aabb": [
+     259.48,
+     96.47,
+     125.02
+    ],
+    "extents_pca": [
+     272.55,
+     142.57,
+     94.89
+    ],
+    "watertight": true
+   },
+   {
+    "file": "034_fBW_R.ply",
+    "vertices": 34189,
+    "faces": 68374,
+    "extents_aabb": [
+     244.01,
+     98.27,
+     125.02
+    ],
+    "extents_pca": [
+     260.83,
+     145.56,
+     93.81
+    ],
+    "watertight": true
+   },
+   {
+    "file": "034_mBW_R.ply",
+    "vertices": 34414,
+    "faces": 68824,
+    "extents_aabb": [
+     237.17,
+     96.55,
+     125.02
+    ],
+    "extents_pca": [
+     258.7,
+     140.91,
+     93.61
+    ],
+    "watertight": true
+   },
+   {
+    "file": "035_fBW_R.ply",
+    "vertices": 31178,
+    "faces": 62352,
+    "extents_aabb": [
+     250.25,
+     119.17,
+     125.0
+    ],
+    "extents_pca": [
+     270.07,
+     144.86,
+     96.15
+    ],
+    "watertight": true
+   },
+   {
+    "file": "035_mBW_R.ply",
+    "vertices": 33747,
+    "faces": 67490,
+    "extents_aabb": [
+     242.31,
+     95.6,
+     125.01
+    ],
+    "extents_pca": [
+     264.7,
+     138.2,
+     94.12
+    ],
+    "watertight": true
+   },
+   {
+    "file": "036_fBW_R.ply",
+    "vertices": 33118,
+    "faces": 66232,
+    "extents_aabb": [
+     266.42,
+     97.09,
+     125.01
+    ],
+    "extents_pca": [
+     271.83,
+     144.5,
+     95.96
+    ],
+    "watertight": true
+   },
+   {
+    "file": "036_mBW_R.ply",
+    "vertices": 33676,
+    "faces": 67348,
+    "extents_aabb": [
+     259.32,
+     91.14,
+     125.02
+    ],
+    "extents_pca": [
+     267.42,
+     142.39,
+     90.85
+    ],
+    "watertight": true
+   },
+   {
+    "file": "037_fBW_R.ply",
+    "vertices": 34518,
+    "faces": 69032,
+    "extents_aabb": [
+     246.9,
+     104.62,
+     125.03
+    ],
+    "extents_pca": [
+     260.46,
+     153.11,
+     93.12
+    ],
+    "watertight": true
+   },
+   {
+    "file": "037_mBW_R.ply",
+    "vertices": 34883,
+    "faces": 69762,
+    "extents_aabb": [
+     243.29,
+     98.38,
+     125.03
+    ],
+    "extents_pca": [
+     262.74,
+     143.43,
+     92.58
+    ],
+    "watertight": true
+   },
+   {
+    "file": "038_fBW_R.ply",
+    "vertices": 35986,
+    "faces": 71968,
+    "extents_aabb": [
+     278.33,
+     105.82,
+     125.01
+    ],
+    "extents_pca": [
+     285.03,
+     145.07,
+     102.87
+    ],
+    "watertight": true
+   },
+   {
+    "file": "038_mBW_R.ply",
+    "vertices": 33422,
+    "faces": 66840,
+    "extents_aabb": [
+     270.95,
+     102.48,
+     125.01
+    ],
+    "extents_pca": [
+     283.31,
+     141.6,
+     100.81
+    ],
+    "watertight": true
+   },
+   {
+    "file": "039_fBW_R.ply",
+    "vertices": 32326,
+    "faces": 64648,
+    "extents_aabb": [
+     275.04,
+     116.83,
+     125.01
+    ],
+    "extents_pca": [
+     285.1,
+     149.94,
+     100.8
+    ],
+    "watertight": true
+   },
+   {
+    "file": "039_mBW_R.ply",
+    "vertices": 34093,
+    "faces": 68182,
+    "extents_aabb": [
+     266.94,
+     101.77,
+     125.02
+    ],
+    "extents_pca": [
+     274.04,
+     145.69,
+     97.6
+    ],
+    "watertight": true
+   },
+   {
+    "file": "040_fBW_R.ply",
+    "vertices": 34035,
+    "faces": 68066,
+    "extents_aabb": [
+     273.9,
+     108.69,
+     125.02
+    ],
+    "extents_pca": [
+     271.19,
+     150.59,
+     98.82
+    ],
+    "watertight": true
+   },
+   {
+    "file": "040_mBW_R.ply",
+    "vertices": 34565,
+    "faces": 69126,
+    "extents_aabb": [
+     269.3,
+     100.46,
+     125.03
+    ],
+    "extents_pca": [
+     271.8,
+     143.76,
+     96.51
+    ],
+    "watertight": true
+   },
+   {
+    "file": "041_fBW_R.ply",
+    "vertices": 32092,
+    "faces": 64180,
+    "extents_aabb": [
+     241.74,
+     104.43,
+     125.0
+    ],
+    "extents_pca": [
+     249.08,
+     148.78,
+     92.91
+    ],
+    "watertight": true
+   },
+   {
+    "file": "041_mBW_R.ply",
+    "vertices": 32459,
+    "faces": 64914,
+    "extents_aabb": [
+     236.58,
+     99.78,
+     125.01
+    ],
+    "extents_pca": [
+     243.3,
+     144.7,
+     91.81
+    ],
+    "watertight": true
+   },
+   {
+    "file": "042_fBW_R.ply",
+    "vertices": 32946,
+    "faces": 65888,
+    "extents_aabb": [
+     222.52,
+     89.5,
+     125.02
+    ],
+    "extents_pca": [
+     239.79,
+     143.69,
+     85.91
+    ],
+    "watertight": true
+   },
+   {
+    "file": "042_mBW_R.ply",
+    "vertices": 32568,
+    "faces": 65132,
+    "extents_aabb": [
+     221.61,
+     85.78,
+     125.02
+    ],
+    "extents_pca": [
+     250.53,
+     133.74,
+     83.99
+    ],
+    "watertight": true
+   },
+   {
+    "file": "043_fBW_R.ply",
+    "vertices": 33583,
+    "faces": 67162,
+    "extents_aabb": [
+     259.32,
+     105.29,
+     125.01
+    ],
+    "extents_pca": [
+     275.69,
+     146.74,
+     95.72
+    ],
+    "watertight": true
+   },
+   {
+    "file": "043_mBW_R.ply",
+    "vertices": 33741,
+    "faces": 67478,
+    "extents_aabb": [
+     255.18,
+     95.84,
+     125.02
+    ],
+    "extents_pca": [
+     266.62,
+     143.11,
+     94.05
+    ],
+    "watertight": true
+   },
+   {
+    "file": "044_fBW_R.ply",
+    "vertices": 33610,
+    "faces": 67216,
+    "extents_aabb": [
+     257.04,
+     105.56,
+     125.01
+    ],
+    "extents_pca": [
+     265.64,
+     144.08,
+     100.44
+    ],
+    "watertight": true
+   },
+   {
+    "file": "044_mBW_R.ply",
+    "vertices": 33730,
+    "faces": 67456,
+    "extents_aabb": [
+     250.08,
+     102.37,
+     125.02
+    ],
+    "extents_pca": [
+     259.71,
+     140.16,
+     99.96
+    ],
+    "watertight": true
+   },
+   {
+    "file": "045_fBW_R.ply",
+    "vertices": 32935,
+    "faces": 65866,
+    "extents_aabb": [
+     252.78,
+     85.63,
+     125.02
+    ],
+    "extents_pca": [
+     258.53,
+     144.5,
+     84.71
+    ],
+    "watertight": true
+   },
+   {
+    "file": "045_mBW_R.ply",
+    "vertices": 33144,
+    "faces": 66284,
+    "extents_aabb": [
+     246.86,
+     83.6,
+     125.02
+    ],
+    "extents_pca": [
+     259.9,
+     141.18,
+     83.26
+    ],
+    "watertight": true
+   },
+   {
+    "file": "046_fBW_R.ply",
+    "vertices": 34051,
+    "faces": 68098,
+    "extents_aabb": [
+     245.29,
+     91.25,
+     125.02
+    ],
+    "extents_pca": [
+     250.15,
+     147.63,
+     88.04
+    ],
+    "watertight": true
+   },
+   {
+    "file": "046_mBW_R.ply",
+    "vertices": 34255,
+    "faces": 68506,
+    "extents_aabb": [
+     240.15,
+     88.33,
+     125.02
+    ],
+    "extents_pca": [
+     260.32,
+     141.78,
+     85.66
+    ],
+    "watertight": true
+   },
+   {
+    "file": "047_fBW_R.ply",
+    "vertices": 32036,
+    "faces": 64068,
+    "extents_aabb": [
+     280.33,
+     101.76,
+     125.01
+    ],
+    "extents_pca": [
+     293.55,
+     144.25,
+     95.13
+    ],
+    "watertight": true
+   },
+   {
+    "file": "047_mBW_R.ply",
+    "vertices": 32117,
+    "faces": 64230,
+    "extents_aabb": [
+     276.21,
+     101.01,
+     125.02
+    ],
+    "extents_pca": [
+     286.85,
+     141.59,
+     97.05
+    ],
+    "watertight": true
+   },
+   {
+    "file": "048_fBW_R.ply",
+    "vertices": 30986,
+    "faces": 61968,
+    "extents_aabb": [
+     270.54,
+     112.69,
+     125.0
+    ],
+    "extents_pca": [
+     273.29,
+     148.74,
+     92.96
+    ],
+    "watertight": true
+   },
+   {
+    "file": "048_mBW_R.ply",
+    "vertices": 32631,
+    "faces": 65258,
+    "extents_aabb": [
+     264.08,
+     98.02,
+     125.01
+    ],
+    "extents_pca": [
+     273.6,
+     141.21,
+     94.55
+    ],
+    "watertight": true
+   },
+   {
+    "file": "049_fBW_R.ply",
+    "vertices": 35112,
+    "faces": 70220,
+    "extents_aabb": [
+     239.31,
+     106.72,
+     125.02
+    ],
+    "extents_pca": [
+     263.67,
+     147.84,
+     93.45
+    ],
+    "watertight": true
+   },
+   {
+    "file": "049_mBW_R.ply",
+    "vertices": 35321,
+    "faces": 70638,
+    "extents_aabb": [
+     236.2,
+     102.01,
+     125.03
+    ],
+    "extents_pca": [
+     259.85,
+     143.31,
+     93.06
+    ],
+    "watertight": true
+   },
+   {
+    "file": "050_fBW_R.ply",
+    "vertices": 34483,
+    "faces": 68962,
+    "extents_aabb": [
+     236.36,
+     103.6,
+     125.02
+    ],
+    "extents_pca": [
+     253.13,
+     150.06,
+     91.06
+    ],
+    "watertight": true
+   },
+   {
+    "file": "050_mBW_R.ply",
+    "vertices": 35314,
+    "faces": 70624,
+    "extents_aabb": [
+     230.57,
+     94.6,
+     125.02
+    ],
+    "extents_pca": [
+     246.76,
+     145.14,
+     88.5
+    ],
+    "watertight": true
+   },
+   {
+    "file": "051_fBW_R.ply",
+    "vertices": 33950,
+    "faces": 67896,
+    "extents_aabb": [
+     244.62,
+     89.06,
+     125.02
+    ],
+    "extents_pca": [
+     269.17,
+     142.68,
+     87.43
+    ],
+    "watertight": true
+   },
+   {
+    "file": "051_mBW_R.ply",
+    "vertices": 32795,
+    "faces": 65586,
+    "extents_aabb": [
+     232.12,
+     83.02,
+     125.02
+    ],
+    "extents_pca": [
+     250.57,
+     126.22,
+     80.08
+    ],
+    "watertight": true
+   },
+   {
+    "file": "052_fBW_R.ply",
+    "vertices": 31612,
+    "faces": 63220,
+    "extents_aabb": [
+     265.27,
+     105.84,
+     125.0
+    ],
+    "extents_pca": [
+     260.39,
+     149.32,
+     90.55
+    ],
+    "watertight": true
+   },
+   {
+    "file": "052_mBW_R.ply",
+    "vertices": 32731,
+    "faces": 65458,
+    "extents_aabb": [
+     257.78,
+     93.93,
+     125.02
+    ],
+    "extents_pca": [
+     271.87,
+     139.31,
+     92.34
+    ],
+    "watertight": true
+   },
+   {
+    "file": "053_fBW_R.ply",
+    "vertices": 33349,
+    "faces": 66694,
+    "extents_aabb": [
+     270.31,
+     112.8,
+     125.01
+    ],
+    "extents_pca": [
+     278.06,
+     144.65,
+     104.54
+    ],
+    "watertight": true
+   },
+   {
+    "file": "053_mBW_R.ply",
+    "vertices": 33480,
+    "faces": 66956,
+    "extents_aabb": [
+     264.15,
+     112.99,
+     125.02
+    ],
+    "extents_pca": [
+     278.63,
+     141.92,
+     105.88
+    ],
+    "watertight": true
+   },
+   {
+    "file": "054_fBW_R.ply",
+    "vertices": 34478,
+    "faces": 68952,
+    "extents_aabb": [
+     260.57,
+     105.21,
+     125.01
+    ],
+    "extents_pca": [
+     274.77,
+     145.36,
+     101.94
+    ],
+    "watertight": true
+   },
+   {
+    "file": "054_mBW_R.ply",
+    "vertices": 34535,
+    "faces": 69066,
+    "extents_aabb": [
+     254.62,
+     107.0,
+     125.03
+    ],
+    "extents_pca": [
+     270.13,
+     143.57,
+     102.32
+    ],
+    "watertight": true
+   },
+   {
+    "file": "055_fBW_R.ply",
+    "vertices": 34102,
+    "faces": 68200,
+    "extents_aabb": [
+     232.89,
+     90.93,
+     125.01
+    ],
+    "extents_pca": [
+     247.97,
+     144.43,
+     88.59
+    ],
+    "watertight": true
+   },
+   {
+    "file": "055_mBW_R.ply",
+    "vertices": 33843,
+    "faces": 67682,
+    "extents_aabb": [
+     228.25,
+     89.55,
+     125.01
+    ],
+    "extents_pca": [
+     242.89,
+     142.06,
+     85.88
+    ],
+    "watertight": true
+   },
+   {
+    "file": "056_fBW_R.ply",
+    "vertices": 33822,
+    "faces": 67640,
+    "extents_aabb": [
+     247.8,
+     104.52,
+     125.0
+    ],
+    "extents_pca": [
+     253.42,
+     146.0,
+     97.32
+    ],
+    "watertight": true
+   },
+   {
+    "file": "056_mBW_R.ply",
+    "vertices": 34365,
+    "faces": 68726,
+    "extents_aabb": [
+     241.89,
+     98.86,
+     125.01
+    ],
+    "extents_pca": [
+     249.06,
+     140.12,
+     98.17
+    ],
+    "watertight": true
+   },
+   {
+    "file": "057_fBW_R.ply",
+    "vertices": 34420,
+    "faces": 68836,
+    "extents_aabb": [
+     243.42,
+     105.38,
+     125.02
+    ],
+    "extents_pca": [
+     267.24,
+     142.03,
+     97.76
+    ],
+    "watertight": true
+   },
+   {
+    "file": "057_mBW_R.ply",
+    "vertices": 35675,
+    "faces": 71346,
+    "extents_aabb": [
+     236.23,
+     94.26,
+     125.03
+    ],
+    "extents_pca": [
+     259.71,
+     138.27,
+     93.95
+    ],
+    "watertight": true
+   },
+   {
+    "file": "058_fBW_R.ply",
+    "vertices": 31139,
+    "faces": 62274,
+    "extents_aabb": [
+     253.31,
+     111.02,
+     125.0
+    ],
+    "extents_pca": [
+     266.95,
+     141.82,
+     94.84
+    ],
+    "watertight": true
+   },
+   {
+    "file": "058_mBW_R.ply",
+    "vertices": 32249,
+    "faces": 64494,
+    "extents_aabb": [
+     246.26,
+     96.52,
+     125.01
+    ],
+    "extents_pca": [
+     258.23,
+     138.16,
+     91.53
+    ],
+    "watertight": true
+   },
+   {
+    "file": "059_fBW_R.ply",
+    "vertices": 35551,
+    "faces": 71098,
+    "extents_aabb": [
+     265.41,
+     102.98,
+     125.03
+    ],
+    "extents_pca": [
+     271.68,
+     147.19,
+     101.83
+    ],
+    "watertight": true
+   },
+   {
+    "file": "059_mBW_R.ply",
+    "vertices": 35628,
+    "faces": 71252,
+    "extents_aabb": [
+     261.33,
+     102.62,
+     125.03
+    ],
+    "extents_pca": [
+     278.24,
+     148.07,
+     102.73
+    ],
+    "watertight": true
+   },
+   {
+    "file": "060_fBW_R.ply",
+    "vertices": 32515,
+    "faces": 65026,
+    "extents_aabb": [
+     249.4,
+     97.05,
+     125.01
+    ],
+    "extents_pca": [
+     262.27,
+     143.36,
+     94.23
+    ],
+    "watertight": true
+   },
+   {
+    "file": "060_mBW_R.ply",
+    "vertices": 32755,
+    "faces": 65506,
+    "extents_aabb": [
+     243.98,
+     94.71,
+     125.02
+    ],
+    "extents_pca": [
+     262.27,
+     137.97,
+     93.33
+    ],
+    "watertight": true
+   },
+   {
+    "file": "061_fBW_R.ply",
+    "vertices": 33248,
+    "faces": 66492,
+    "extents_aabb": [
+     260.97,
+     102.96,
+     125.01
+    ],
+    "extents_pca": [
+     268.7,
+     143.77,
+     100.77
+    ],
+    "watertight": true
+   },
+   {
+    "file": "061_mBW_R.ply",
+    "vertices": 33603,
+    "faces": 67202,
+    "extents_aabb": [
+     256.38,
+     98.64,
+     125.02
+    ],
+    "extents_pca": [
+     262.9,
+     143.56,
+     98.68
+    ],
+    "watertight": true
+   },
+   {
+    "file": "062_fBW_R.ply",
+    "vertices": 32527,
+    "faces": 65050,
+    "extents_aabb": [
+     261.76,
+     112.59,
+     125.01
+    ],
+    "extents_pca": [
+     276.06,
+     147.34,
+     95.56
+    ],
+    "watertight": true
+   },
+   {
+    "file": "062_mBW_R.ply",
+    "vertices": 33416,
+    "faces": 66828,
+    "extents_aabb": [
+     256.32,
+     99.87,
+     125.01
+    ],
+    "extents_pca": [
+     266.65,
+     141.82,
+     92.33
+    ],
+    "watertight": true
+   },
+   {
+    "file": "063_fBW_R.ply",
+    "vertices": 33712,
+    "faces": 67420,
+    "extents_aabb": [
+     253.49,
+     93.9,
+     125.01
+    ],
+    "extents_pca": [
+     268.39,
+     143.98,
+     91.61
+    ],
+    "watertight": true
+   },
+   {
+    "file": "063_mBW_R.ply",
+    "vertices": 33104,
+    "faces": 66204,
+    "extents_aabb": [
+     249.77,
+     91.89,
+     125.01
+    ],
+    "extents_pca": [
+     265.29,
+     137.26,
+     91.02
+    ],
+    "watertight": true
+   },
+   {
+    "file": "065_fBW_R.ply",
+    "vertices": 33708,
+    "faces": 67412,
+    "extents_aabb": [
+     256.15,
+     97.44,
+     125.01
+    ],
+    "extents_pca": [
+     274.5,
+     144.0,
+     90.05
+    ],
+    "watertight": true
+   },
+   {
+    "file": "065_mBW_R.ply",
+    "vertices": 34188,
+    "faces": 68372,
+    "extents_aabb": [
+     251.01,
+     89.5,
+     125.02
+    ],
+    "extents_pca": [
+     265.82,
+     144.14,
+     87.04
+    ],
+    "watertight": true
+   },
+   {
+    "file": "066_fBW_R.ply",
+    "vertices": 32019,
+    "faces": 64034,
+    "extents_aabb": [
+     273.21,
+     119.16,
+     125.0
+    ],
+    "extents_pca": [
+     273.59,
+     149.94,
+     100.66
+    ],
+    "watertight": true
+   },
+   {
+    "file": "066_mBW_R.ply",
+    "vertices": 33959,
+    "faces": 67914,
+    "extents_aabb": [
+     267.28,
+     104.12,
+     125.02
+    ],
+    "extents_pca": [
+     278.91,
+     142.18,
+     101.64
+    ],
+    "watertight": true
+   },
+   {
+    "file": "067_fBW_R.ply",
+    "vertices": 34460,
+    "faces": 68916,
+    "extents_aabb": [
+     252.0,
+     106.85,
+     125.02
+    ],
+    "extents_pca": [
+     267.16,
+     143.22,
+     106.08
+    ],
+    "watertight": true
+   },
+   {
+    "file": "067_mBW_R.ply",
+    "vertices": 35187,
+    "faces": 70370,
+    "extents_aabb": [
+     241.38,
+     103.06,
+     125.03
+    ],
+    "extents_pca": [
+     259.47,
+     140.38,
+     103.75
+    ],
+    "watertight": true
+   },
+   {
+    "file": "068_fBW_R.ply",
+    "vertices": 30898,
+    "faces": 61792,
+    "extents_aabb": [
+     261.48,
+     105.15,
+     125.01
+    ],
+    "extents_pca": [
+     265.0,
+     153.03,
+     89.04
+    ],
+    "watertight": true
+   },
+   {
+    "file": "068_mBW_R.ply",
+    "vertices": 32825,
+    "faces": 65646,
+    "extents_aabb": [
+     255.02,
+     90.86,
+     125.01
+    ],
+    "extents_pca": [
+     271.59,
+     141.52,
+     87.54
+    ],
+    "watertight": true
+   },
+   {
+    "file": "069_fBW_R.ply",
+    "vertices": 32650,
+    "faces": 65296,
+    "extents_aabb": [
+     269.94,
+     103.72,
+     125.01
+    ],
+    "extents_pca": [
+     268.45,
+     150.41,
+     94.34
+    ],
+    "watertight": true
+   },
+   {
+    "file": "069_mBW_R.ply",
+    "vertices": 33208,
+    "faces": 66412,
+    "extents_aabb": [
+     263.4,
+     95.97,
+     125.02
+    ],
+    "extents_pca": [
+     273.25,
+     141.49,
+     95.35
+    ],
+    "watertight": true
+   },
+   {
+    "file": "070_fBW_R.ply",
+    "vertices": 34004,
+    "faces": 68004,
+    "extents_aabb": [
+     264.0,
+     117.87,
+     125.02
+    ],
+    "extents_pca": [
+     266.17,
+     150.79,
+     102.2
+    ],
+    "watertight": true
+   },
+   {
+    "file": "070_mBW_R.ply",
+    "vertices": 35718,
+    "faces": 71432,
+    "extents_aabb": [
+     253.34,
+     104.94,
+     125.02
+    ],
+    "extents_pca": [
+     269.44,
+     142.11,
+     106.05
+    ],
+    "watertight": true
+   },
+   {
+    "file": "071_fBW_R.ply",
+    "vertices": 32878,
+    "faces": 65752,
+    "extents_aabb": [
+     265.54,
+     116.18,
+     125.01
+    ],
+    "extents_pca": [
+     273.49,
+     145.52,
+     103.8
+    ],
+    "watertight": true
+   },
+   {
+    "file": "071_mBW_R.ply",
+    "vertices": 34197,
+    "faces": 68390,
+    "extents_aabb": [
+     260.4,
+     105.35,
+     125.01
+    ],
+    "extents_pca": [
+     267.29,
+     143.46,
+     101.14
+    ],
+    "watertight": true
+   },
+   {
+    "file": "072_fBW_R.ply",
+    "vertices": 33370,
+    "faces": 66736,
+    "extents_aabb": [
+     257.99,
+     112.28,
+     125.0
+    ],
+    "extents_pca": [
+     267.73,
+     147.32,
+     98.22
+    ],
+    "watertight": true
+   },
+   {
+    "file": "072_mBW_R.ply",
+    "vertices": 34678,
+    "faces": 69352,
+    "extents_aabb": [
+     250.71,
+     102.42,
+     125.01
+    ],
+    "extents_pca": [
+     268.44,
+     140.6,
+     99.66
+    ],
+    "watertight": true
+   },
+   {
+    "file": "073_fBW_R.ply",
+    "vertices": 32150,
+    "faces": 64296,
+    "extents_aabb": [
+     266.68,
+     114.73,
+     125.01
+    ],
+    "extents_pca": [
+     274.79,
+     147.12,
+     91.99
+    ],
+    "watertight": true
+   },
+   {
+    "file": "073_mBW_R.ply",
+    "vertices": 33952,
+    "faces": 67900,
+    "extents_aabb": [
+     262.24,
+     91.77,
+     125.0
+    ],
+    "extents_pca": [
+     278.5,
+     137.87,
+     88.12
+    ],
+    "watertight": true
+   },
+   {
+    "file": "074_fBW_R.ply",
+    "vertices": 34367,
+    "faces": 68730,
+    "extents_aabb": [
+     263.41,
+     120.1,
+     125.02
+    ],
+    "extents_pca": [
+     271.54,
+     146.78,
+     109.34
+    ],
+    "watertight": true
+   },
+   {
+    "file": "074_mBW_R.ply",
+    "vertices": 34609,
+    "faces": 69214,
+    "extents_aabb": [
+     259.47,
+     114.73,
+     125.03
+    ],
+    "extents_pca": [
+     279.82,
+     141.16,
+     108.11
+    ],
+    "watertight": true
+   },
+   {
+    "file": "075_fBW_Lr.ply",
+    "vertices": 34415,
+    "faces": 68826,
+    "extents_aabb": [
+     269.78,
+     103.48,
+     125.04
+    ],
+    "extents_pca": [
+     283.62,
+     147.39,
+     99.56
+    ],
+    "watertight": true
+   },
+   {
+    "file": "075_mBW_Lr.ply",
+    "vertices": 33875,
+    "faces": 67746,
+    "extents_aabb": [
+     264.64,
+     101.49,
+     125.02
+    ],
+    "extents_pca": [
+     280.04,
+     141.22,
+     98.51
+    ],
+    "watertight": true
+   },
+   {
+    "file": "076_fBW_R.ply",
+    "vertices": 33445,
+    "faces": 66886,
+    "extents_aabb": [
+     263.21,
+     105.69,
+     125.01
+    ],
+    "extents_pca": [
+     262.58,
+     148.1,
+     99.94
+    ],
+    "watertight": true
+   },
+   {
+    "file": "076_mBW_R.ply",
+    "vertices": 33957,
+    "faces": 67910,
+    "extents_aabb": [
+     256.93,
+     99.43,
+     125.02
+    ],
+    "extents_pca": [
+     261.96,
+     143.49,
+     98.26
+    ],
+    "watertight": true
+   },
+   {
+    "file": "077_fBW_R.ply",
+    "vertices": 32540,
+    "faces": 65076,
+    "extents_aabb": [
+     263.46,
+     99.53,
+     125.0
+    ],
+    "extents_pca": [
+     262.39,
+     151.64,
+     95.99
+    ],
+    "watertight": true
+   },
+   {
+    "file": "077_mBW_R.ply",
+    "vertices": 33240,
+    "faces": 66476,
+    "extents_aabb": [
+     258.3,
+     94.07,
+     125.02
+    ],
+    "extents_pca": [
+     266.72,
+     144.44,
+     93.16
+    ],
+    "watertight": true
+   },
+   {
+    "file": "078_fBW_Lr.ply",
+    "vertices": 33039,
+    "faces": 66074,
+    "extents_aabb": [
+     246.32,
+     97.74,
+     124.98
+    ],
+    "extents_pca": [
+     252.32,
+     145.71,
+     90.56
+    ],
+    "watertight": true
+   },
+   {
+    "file": "078_mBW_Lr.ply",
+    "vertices": 33197,
+    "faces": 66390,
+    "extents_aabb": [
+     242.12,
+     95.33,
+     125.04
+    ],
+    "extents_pca": [
+     253.68,
+     142.92,
+     88.56
+    ],
+    "watertight": true
+   },
+   {
+    "file": "079_fBW_R.ply",
+    "vertices": 35494,
+    "faces": 70984,
+    "extents_aabb": [
+     230.02,
+     93.06,
+     125.03
+    ],
+    "extents_pca": [
+     244.46,
+     152.18,
+     86.9
+    ],
+    "watertight": true
+   },
+   {
+    "file": "079_mBW_R.ply",
+    "vertices": 35446,
+    "faces": 70888,
+    "extents_aabb": [
+     226.1,
+     86.1,
+     125.03
+    ],
+    "extents_pca": [
+     244.31,
+     142.01,
+     85.26
+    ],
+    "watertight": true
+   },
+   {
+    "file": "080_fBW_R.ply",
+    "vertices": 34190,
+    "faces": 68376,
+    "extents_aabb": [
+     247.05,
+     99.84,
+     125.02
+    ],
+    "extents_pca": [
+     262.3,
+     142.66,
+     99.73
+    ],
+    "watertight": true
+   },
+   {
+    "file": "080_mBW_R.ply",
+    "vertices": 34023,
+    "faces": 68042,
+    "extents_aabb": [
+     241.51,
+     98.5,
+     125.02
+    ],
+    "extents_pca": [
+     259.56,
+     138.33,
+     98.0
+    ],
+    "watertight": true
+   },
+   {
+    "file": "081_fBW_R.ply",
+    "vertices": 35998,
+    "faces": 71992,
+    "extents_aabb": [
+     275.88,
+     115.02,
+     125.01
+    ],
+    "extents_pca": [
+     284.75,
+     146.79,
+     106.33
+    ],
+    "watertight": true
+   },
+   {
+    "file": "081_mBW_R.ply",
+    "vertices": 33708,
+    "faces": 67412,
+    "extents_aabb": [
+     271.79,
+     108.44,
+     125.01
+    ],
+    "extents_pca": [
+     284.27,
+     143.94,
+     101.27
+    ],
+    "watertight": true
+   },
+   {
+    "file": "082_fBW_R.ply",
+    "vertices": 33831,
+    "faces": 67658,
+    "extents_aabb": [
+     238.06,
+     88.81,
+     125.02
+    ],
+    "extents_pca": [
+     263.21,
+     140.02,
+     86.78
+    ],
+    "watertight": true
+   },
+   {
+    "file": "082_mBW_R.ply",
+    "vertices": 35020,
+    "faces": 70036,
+    "extents_aabb": [
+     225.85,
+     86.64,
+     125.02
+    ],
+    "extents_pca": [
+     252.73,
+     138.98,
+     85.4
+    ],
+    "watertight": true
+   },
+   {
+    "file": "083_fBW_R.ply",
+    "vertices": 32688,
+    "faces": 65372,
+    "extents_aabb": [
+     250.09,
+     94.12,
+     125.01
+    ],
+    "extents_pca": [
+     260.2,
+     144.13,
+     87.17
+    ],
+    "watertight": true
+   },
+   {
+    "file": "083_mBW_R.ply",
+    "vertices": 33325,
+    "faces": 66646,
+    "extents_aabb": [
+     244.66,
+     88.59,
+     125.01
+    ],
+    "extents_pca": [
+     253.59,
+     142.59,
+     85.05
+    ],
+    "watertight": true
+   },
+   {
+    "file": "084_fBW_R.ply",
+    "vertices": 33621,
+    "faces": 67238,
+    "extents_aabb": [
+     243.44,
+     95.74,
+     125.01
+    ],
+    "extents_pca": [
+     264.38,
+     143.37,
+     91.63
+    ],
+    "watertight": true
+   },
+   {
+    "file": "084_mBW_R.ply",
+    "vertices": 33945,
+    "faces": 67886,
+    "extents_aabb": [
+     235.27,
+     90.12,
+     125.02
+    ],
+    "extents_pca": [
+     254.48,
+     139.85,
+     89.18
+    ],
+    "watertight": true
+   },
+   {
+    "file": "085_fBW_R.ply",
+    "vertices": 33108,
+    "faces": 66212,
+    "extents_aabb": [
+     269.51,
+     91.08,
+     125.01
+    ],
+    "extents_pca": [
+     273.08,
+     144.9,
+     89.86
+    ],
+    "watertight": true
+   },
+   {
+    "file": "085_mBW_R.ply",
+    "vertices": 33565,
+    "faces": 67126,
+    "extents_aabb": [
+     263.79,
+     88.99,
+     125.02
+    ],
+    "extents_pca": [
+     278.2,
+     140.82,
+     88.68
+    ],
+    "watertight": true
+   },
+   {
+    "file": "086_fBW_R.ply",
+    "vertices": 32724,
+    "faces": 65444,
+    "extents_aabb": [
+     274.01,
+     100.96,
+     125.01
+    ],
+    "extents_pca": [
+     269.06,
+     146.61,
+     94.71
+    ],
+    "watertight": true
+   },
+   {
+    "file": "086_mBW_R.ply",
+    "vertices": 33696,
+    "faces": 67388,
+    "extents_aabb": [
+     268.62,
+     94.08,
+     125.02
+    ],
+    "extents_pca": [
+     269.26,
+     143.22,
+     94.46
+    ],
+    "watertight": true
+   },
+   {
+    "file": "087_fBW_R.ply",
+    "vertices": 33462,
+    "faces": 66920,
+    "extents_aabb": [
+     274.55,
+     106.75,
+     125.01
+    ],
+    "extents_pca": [
+     284.92,
+     144.42,
+     101.2
+    ],
+    "watertight": true
+   },
+   {
+    "file": "087_mBW_R.ply",
+    "vertices": 33353,
+    "faces": 66702,
+    "extents_aabb": [
+     270.32,
+     103.26,
+     125.02
+    ],
+    "extents_pca": [
+     275.73,
+     143.3,
+     97.57
+    ],
+    "watertight": true
+   },
+   {
+    "file": "088_fBW_R.ply",
+    "vertices": 33399,
+    "faces": 66794,
+    "extents_aabb": [
+     250.43,
+     106.62,
+     125.02
+    ],
+    "extents_pca": [
+     271.72,
+     147.76,
+     96.01
+    ],
+    "watertight": true
+   },
+   {
+    "file": "088_mBW_R.ply",
+    "vertices": 33606,
+    "faces": 67208,
+    "extents_aabb": [
+     246.48,
+     97.43,
+     125.02
+    ],
+    "extents_pca": [
+     256.33,
+     143.27,
+     91.23
+    ],
+    "watertight": true
+   },
+   {
+    "file": "089_fBW_R.ply",
+    "vertices": 32820,
+    "faces": 65636,
+    "extents_aabb": [
+     248.04,
+     94.54,
+     125.01
+    ],
+    "extents_pca": [
+     268.5,
+     139.2,
+     91.25
+    ],
+    "watertight": true
+   },
+   {
+    "file": "089_mBW_R.ply",
+    "vertices": 32457,
+    "faces": 64910,
+    "extents_aabb": [
+     243.53,
+     93.86,
+     125.02
+    ],
+    "extents_pca": [
+     257.18,
+     138.74,
+     90.65
+    ],
+    "watertight": true
+   },
+   {
+    "file": "090_fBW_R.ply",
+    "vertices": 33148,
+    "faces": 66292,
+    "extents_aabb": [
+     286.68,
+     110.09,
+     125.01
+    ],
+    "extents_pca": [
+     295.32,
+     144.45,
+     101.77
+    ],
+    "watertight": true
+   },
+   {
+    "file": "090_mBW_R.ply",
+    "vertices": 33109,
+    "faces": 66214,
+    "extents_aabb": [
+     280.59,
+     103.76,
+     125.02
+    ],
+    "extents_pca": [
+     289.75,
+     140.57,
+     101.01
+    ],
+    "watertight": true
+   },
+   {
+    "file": "091_fBW_R.ply",
+    "vertices": 33751,
+    "faces": 67498,
+    "extents_aabb": [
+     247.69,
+     96.62,
+     125.01
+    ],
+    "extents_pca": [
+     267.09,
+     144.77,
+     92.36
+    ],
+    "watertight": true
+   },
+   {
+    "file": "091_mBW_R.ply",
+    "vertices": 33426,
+    "faces": 66848,
+    "extents_aabb": [
+     242.94,
+     93.63,
+     125.01
+    ],
+    "extents_pca": [
+     265.6,
+     137.25,
+     89.35
+    ],
+    "watertight": true
+   },
+   {
+    "file": "092_fBW_R.ply",
+    "vertices": 33387,
+    "faces": 66770,
+    "extents_aabb": [
+     292.17,
+     103.44,
+     125.01
+    ],
+    "extents_pca": [
+     292.74,
+     146.76,
+     101.59
+    ],
+    "watertight": true
+   },
+   {
+    "file": "092_mBW_R.ply",
+    "vertices": 33676,
+    "faces": 67348,
+    "extents_aabb": [
+     286.66,
+     98.47,
+     125.02
+    ],
+    "extents_pca": [
+     293.29,
+     141.61,
+     97.11
+    ],
+    "watertight": true
+   },
+   {
+    "file": "093_fBW_R.ply",
+    "vertices": 31611,
+    "faces": 63218,
+    "extents_aabb": [
+     291.2,
+     114.41,
+     125.01
+    ],
+    "extents_pca": [
+     284.37,
+     153.67,
+     98.04
+    ],
+    "watertight": true
+   },
+   {
+    "file": "093_mBW_R.ply",
+    "vertices": 32814,
+    "faces": 65624,
+    "extents_aabb": [
+     287.57,
+     102.72,
+     125.02
+    ],
+    "extents_pca": [
+     287.83,
+     147.25,
+     98.02
+    ],
+    "watertight": true
+   },
+   {
+    "file": "094_fBW_R.ply",
+    "vertices": 33643,
+    "faces": 67282,
+    "extents_aabb": [
+     240.71,
+     101.89,
+     125.01
+    ],
+    "extents_pca": [
+     252.2,
+     144.19,
+     97.32
+    ],
+    "watertight": true
+   },
+   {
+    "file": "094_mBW_R.ply",
+    "vertices": 33922,
+    "faces": 67840,
+    "extents_aabb": [
+     234.88,
+     96.77,
+     125.01
+    ],
+    "extents_pca": [
+     254.62,
+     137.12,
+     95.35
+    ],
+    "watertight": true
+   },
+   {
+    "file": "095_fBW_R.ply",
+    "vertices": 34936,
+    "faces": 69868,
+    "extents_aabb": [
+     244.04,
+     103.13,
+     125.01
+    ],
+    "extents_pca": [
+     252.05,
+     147.03,
+     98.19
+    ],
+    "watertight": true
+   },
+   {
+    "file": "095_mBW_R.ply",
+    "vertices": 35068,
+    "faces": 70132,
+    "extents_aabb": [
+     240.45,
+     101.69,
+     125.02
+    ],
+    "extents_pca": [
+     251.74,
+     141.11,
+     97.35
+    ],
+    "watertight": true
+   },
+   {
+    "file": "096_fBW_Lr.ply",
+    "vertices": 32215,
+    "faces": 64426,
+    "extents_aabb": [
+     264.34,
+     109.91,
+     125.04
+    ],
+    "extents_pca": [
+     265.22,
+     150.48,
+     95.36
+    ],
+    "watertight": true
+   },
+   {
+    "file": "096_mBW_Lr.ply",
+    "vertices": 33187,
+    "faces": 66370,
+    "extents_aabb": [
+     260.44,
+     101.51,
+     125.03
+    ],
+    "extents_pca": [
+     265.13,
+     146.08,
+     93.94
+    ],
+    "watertight": true
+   },
+   {
+    "file": "097_fBW_Lr.ply",
+    "vertices": 33764,
+    "faces": 67524,
+    "extents_aabb": [
+     250.39,
+     98.68,
+     125.04
+    ],
+    "extents_pca": [
+     257.62,
+     146.31,
+     90.96
+    ],
+    "watertight": true
+   },
+   {
+    "file": "097_mBW_Lr.ply",
+    "vertices": 34395,
+    "faces": 68786,
+    "extents_aabb": [
+     244.75,
+     90.77,
+     125.03
+    ],
+    "extents_pca": [
+     261.94,
+     141.5,
+     89.32
+    ],
+    "watertight": true
+   },
+   {
+    "file": "098_fBW_Lr.ply",
+    "vertices": 33946,
+    "faces": 67888,
+    "extents_aabb": [
+     272.9,
+     112.91,
+     125.03
+    ],
+    "extents_pca": [
+     284.32,
+     146.84,
+     101.05
+    ],
+    "watertight": true
+   },
+   {
+    "file": "098_mBW_Lr.ply",
+    "vertices": 33495,
+    "faces": 66986,
+    "extents_aabb": [
+     267.85,
+     112.13,
+     125.03
+    ],
+    "extents_pca": [
+     283.23,
+     141.01,
+     99.47
+    ],
+    "watertight": true
+   },
+   {
+    "file": "099_fBW_R.ply",
+    "vertices": 33945,
+    "faces": 67886,
+    "extents_aabb": [
+     247.07,
+     95.18,
+     125.01
+    ],
+    "extents_pca": [
+     264.05,
+     143.4,
+     90.95
+    ],
+    "watertight": true
+   },
+   {
+    "file": "099_mBW_R.ply",
+    "vertices": 34499,
+    "faces": 68994,
+    "extents_aabb": [
+     242.43,
+     88.21,
+     125.02
+    ],
+    "extents_pca": [
+     266.44,
+     138.5,
+     86.83
+    ],
+    "watertight": true
+   },
+   {
+    "file": "100_fBW_R.ply",
+    "vertices": 32533,
+    "faces": 65062,
+    "extents_aabb": [
+     253.26,
+     100.7,
+     125.01
+    ],
+    "extents_pca": [
+     254.81,
+     148.8,
+     90.36
+    ],
+    "watertight": true
+   },
+   {
+    "file": "100_mBW_R.ply",
+    "vertices": 33174,
+    "faces": 66344,
+    "extents_aabb": [
+     248.33,
+     90.75,
+     125.01
+    ],
+    "extents_pca": [
+     263.6,
+     137.94,
+     87.41
+    ],
+    "watertight": true
+   },
+   {
+    "file": "101_fBW_R.ply",
+    "vertices": 32435,
+    "faces": 64866,
+    "extents_aabb": [
+     237.22,
+     98.6,
+     125.01
+    ],
+    "extents_pca": [
+     244.29,
+     143.54,
+     92.19
+    ],
+    "watertight": true
+   },
+   {
+    "file": "101_mBW_R.ply",
+    "vertices": 33535,
+    "faces": 67066,
+    "extents_aabb": [
+     231.89,
+     90.22,
+     125.01
+    ],
+    "extents_pca": [
+     248.85,
+     135.95,
+     89.0
+    ],
+    "watertight": true
+   },
+   {
+    "file": "102_fBW_R.ply",
+    "vertices": 34187,
+    "faces": 68370,
+    "extents_aabb": [
+     239.4,
+     94.68,
+     125.01
+    ],
+    "extents_pca": [
+     256.67,
+     142.17,
+     92.53
+    ],
+    "watertight": true
+   },
+   {
+    "file": "102_mBW_R.ply",
+    "vertices": 34737,
+    "faces": 69470,
+    "extents_aabb": [
+     233.42,
+     86.24,
+     125.01
+    ],
+    "extents_pca": [
+     252.95,
+     139.11,
+     85.22
+    ],
+    "watertight": true
+   },
+   {
+    "file": "103_fBW_R.ply",
+    "vertices": 33881,
+    "faces": 67758,
+    "extents_aabb": [
+     251.83,
+     102.25,
+     125.01
+    ],
+    "extents_pca": [
+     261.07,
+     145.56,
+     96.46
+    ],
+    "watertight": true
+   },
+   {
+    "file": "103_mBW_R.ply",
+    "vertices": 34411,
+    "faces": 68818,
+    "extents_aabb": [
+     245.9,
+     98.28,
+     125.02
+    ],
+    "extents_pca": [
+     259.81,
+     141.08,
+     94.85
+    ],
+    "watertight": true
+   }
+  ]
+ },
+ {
+  "key": "pressure-images",
+  "title": "Plantar pressure dataset for foot health assessment (400 images, 5 classes)",
+  "license": "CC BY 4.0 (API: cc-by-4.0)",
+  "doi": "10.5281/zenodo.14621923",
+  "files": 1,
+  "bytes": 10059499,
+  "hash_algo": "md5",
+  "hash_pass": 1,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [],
+  "loadable": 202,
+  "loadable_of": 400,
+  "load_failures": [
+   "extracted/Dataset-plantarImages/Dataset/20230312095951.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230314180257.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230315141409.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230316165910.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230317104327.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230317131006.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230317131715.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230317132135.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230317133152.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta",
+   "extracted/Dataset-plantarImages/Dataset/20230318113303.png: UnidentifiedImageError: cannot identify image file '/Users/ishaanko/Data/Code/dubhacks/datasets/raw/zenodo-14621923/extracted/Dataset-planta"
+  ],
+  "labels": {
+   "unlabeled": 400
+  },
+  "stats": {
+   "sizes": {
+    "702x702": 129,
+    "701x701": 41,
+    "720x720": 31,
+    "640x640": 1
+   },
+   "modes": {
+    "RGBA": 202
+   },
+   "zero_byte_pngs": 198
+  },
+  "notes": [
+   "UPSTREAM DATA LOSS: the zip itself (MD5 matches Zenodo) contains zero-byte PNGs, so only the non-empty files are usable (see zero_byte_pngs / loadable).",
+   "NO CLASS LABELS SHIPPED: 400 PNGs named by timestamp (YYYYMMDDHHMMSS) in one flat folder; no label file, no class folders, no metadata in the zip or the Zenodo record. The 5 classes are only named in the description. Labels must be obtained from the authors or assigned by hand before supervised training.",
+   "Collected at a shoe store with a Footbird 3.0 scanner; some images may be mixed types."
+  ]
+ },
+ {
+  "key": "fsr-rectus-valgus",
+  "title": "High-density plantar pressure, rectus vs valgus alignment (32x32 FSR CSV)",
+  "license": "CC BY 4.0 (API: cc-by-4.0)",
+  "doi": "10.5281/zenodo.19872222",
+  "files": 5,
+  "bytes": 16953847,
+  "hash_algo": "md5",
+  "hash_pass": 5,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [],
+  "loadable": 307,
+  "loadable_of": 307,
+  "load_failures": [],
+  "labels": {
+   "left=Rectus,right=Rectus": 47,
+   "left=Rectus,right=Valgus": 62,
+   "left=Valgus,right=Rectus": 49,
+   "left=Valgus,right=Valgus": 149
+  },
+  "stats": {
+   "grid": "32x32 raw + 128-row interpolated block",
+   "max_value": {
+    "min": 0.37,
+    "median": 0.81,
+    "max": 2.19
+   },
+   "nonzero_cells_per_sample": {
+    "min": 170,
+    "median": 684,
+    "max": 1024
+   },
+   "filename_vs_cell_label_mismatch": 0
+  },
+  "notes": [
+   "Labels per file: left and right REARFOOT alignment (rectus/valgus) from Tibial-Calcaneal Angle, not arch type. Useful for alignment, not flat-foot, classification.",
+   ".rar uses the RAR v6 method: 7zz 26.04 fails ('Unsupported Method'), bsdtar extracts it.",
+   "Zenodo record also holds 4 example PNG intensity maps (Rectus_Rectus.png etc.)."
+  ]
+ },
+ {
+  "key": "cadwalk-healthy",
+  "title": "CAD WALK Healthy Controls (55 adults, RSscan pressure)",
+  "license": "CC BY 4.0 (API: cc-by-4.0)",
+  "doi": "10.5281/zenodo.1265420",
+  "files": 1,
+  "bytes": 124459257,
+  "hash_algo": "md5",
+  "hash_pass": 1,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [],
+  "loadable": 2696,
+  "loadable_of": 2696,
+  "load_failures": [],
+  "labels": {
+   "healthy": 55
+  },
+  "stats": {
+   "nii_files": 2640,
+   "xlsx_files": 56,
+   "subjects": 55,
+   "frame_shapes": {
+    "36x20": 146,
+    "37x20": 124,
+    "36x19": 112,
+    "34x19": 97
+   },
+   "frames_per_trial": {
+    "min": 204,
+    "median": 330.0,
+    "max": 433
+   }
+  },
+  "notes": [
+   "Pressure videos as NIfTI (rows x cols x frames), left_foot_trial_N / right_foot_trial_N per subject; per-subject xlsx plus metadata.xlsx and Readme.pdf. Labels are cohort-level only."
+  ]
+ },
+ {
+  "key": "cadwalk-hallux-valgus",
+  "title": "CAD WALK Hallux Valgus, pre-surgery (50 patients)",
+  "license": "CC BY 4.0 (API: cc-by-4.0)",
+  "doi": "10.5281/zenodo.3406523",
+  "files": 1,
+  "bytes": 157711499,
+  "hash_algo": "md5",
+  "hash_pass": 1,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [],
+  "loadable": 1519,
+  "loadable_of": 1519,
+  "load_failures": [],
+  "labels": {
+   "hallux_valgus": 50
+  },
+  "stats": {
+   "nii_files": 1466,
+   "xlsx_files": 53,
+   "subjects": 50,
+   "frame_shapes": {
+    "36x20": 87,
+    "35x19": 81,
+    "35x20": 79,
+    "35x21": 78
+   },
+   "frames_per_trial": {
+    "min": 5,
+    "median": 152.0,
+    "max": 325
+   }
+  },
+  "notes": [
+   "Pressure videos as NIfTI (rows x cols x frames), left_foot_trial_N / right_foot_trial_N per subject; per-subject xlsx plus metadata.xlsx and Readme.pdf. Labels are cohort-level only."
+  ]
+ },
+ {
+  "key": "pesplanus-xray",
+  "title": "Pesplanus Dataset (weight-bearing lateral X-rays, 842 images)",
+  "license": "CC BY 4.0 (API: data_licence)",
+  "doi": "10.17632/sss89tjddy.1",
+  "files": 842,
+  "bytes": 30949053,
+  "hash_algo": "sha256",
+  "hash_pass": 842,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [],
+  "loadable": 842,
+  "loadable_of": 842,
+  "load_failures": [],
+  "labels": {
+   "normal": 440,
+   "pes_planus": 402
+  },
+  "stats": {
+   "sizes": {
+    "995x661": 7,
+    "667x404": 4,
+    "929x459": 4,
+    "794x526": 4,
+    "660x364": 4
+   },
+   "modes": {
+    "RGB": 842
+   },
+   "name_patterns": {
+    "#l.jpg": 271,
+    "#r.jpg": 267,
+    "#l - (#).jpg": 164,
+    "#l (#).jpg": 138,
+    "# l.jpg": 1
+   },
+   "unique_images_by_sha256": 540,
+   "duplicate_groups_spanning_both_classes": 0
+  },
+  "notes": [
+   "Mendeley's API gives unnamed class folders; labels are inferred from folder file counts matching the dataset description (402 pes planus, 440 normal). Spot-check before trusting.",
+   "Labels: calcaneal inclination <18 deg = pes planus (2 radiologists + a third for conflicts).",
+   "LEAKAGE RISK: the 842 files are only as many unique images as 'unique_images_by_sha256' (byte-identical duplicates, apparently from re-exporting); numeric filename prefixes are reused across classes and 'N L (k)' names are a separate series, so filenames do NOT identify patients. Dedupe by hash before splitting (no duplicate group spans both classes, so labels are consistent)."
+  ]
+ },
+ {
+  "key": "takata-flatfoot",
+  "title": "Takata flatfoot plantar pressure and gait cycle (20 flat + 21 normal women)",
+  "license": "CC BY 4.0 (API: data_licence)",
+  "doi": "10.17632/vv3zgwwpk3.1",
+  "files": 1,
+  "bytes": 23900,
+  "hash_algo": "sha256",
+  "hash_pass": 1,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [],
+  "loadable": 1,
+  "loadable_of": 1,
+  "load_failures": [],
+  "labels": {
+   "LOW (flat arch group)": 20,
+   "NORMAL": 21
+  },
+  "stats": {
+   "MAXP": [
+    23,
+    21
+   ],
+   "CA": [
+    23,
+    21
+   ],
+   "GC": [
+    23,
+    9
+   ]
+  },
+  "notes": [
+   "Sheets MAXP (peak pressure), CA (contact area), GC (gait-phase times); columns are foot regions x {LOW, NORMAL}. Group means per row, not raw frames. Flat group = 'LOW' (arch), per paper: 20 FF vs 21 NF women."
+  ]
+ },
+ {
+  "key": "mun104",
+  "title": "MUN104 mean plantar pressure template (104 healthy subjects, L/R)",
+  "license": "MIT (GitHub API: mit)",
+  "doi": "",
+  "files": 2,
+  "bytes": 5613,
+  "hash_algo": "sha256",
+  "hash_pass": 2,
+  "hash_fail": 0,
+  "hash_failures": [],
+  "skipped_large": [],
+  "loadable": 4,
+  "loadable_of": 4,
+  "load_failures": [],
+  "labels": {
+   "healthy mean map": 2
+  },
+  "stats": {
+   "MUN104L": {
+    "shape": [
+     63,
+     27
+    ],
+    "min": 0.0,
+    "max": 402.0,
+    "nonzero_contact_pixels": 660,
+    "all_finite": true
+   },
+   "MUN104R": {
+    "shape": [
+     63,
+     27
+    ],
+    "min": 0.0,
+    "max": 392.0,
+    "nonzero_contact_pixels": 657,
+    "all_finite": true
+   }
+  },
+  "notes": [
+   "Mean of 104 healthy subjects per foot; integer-valued grid, rows = long axis. Not per-subject. No published checksum: sha256 recorded by fetch.py on first download (see hashes in manifest)."
+  ],
+  "observed_sha256": {
+   "MUN104.csv.zip": "d34aa72be8a70bce20f0607e5649985d8caa307f20635d0a35aceb17d423f59a",
+   "MUN104.h5.zip": "73977ff6d07e30a71ebb25174b7cb2b1b23739012ab384f231ff2d1a7a2f82a4"
+  }
+ }
+]

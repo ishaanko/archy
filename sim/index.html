@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>archy | Check your arch. Print your insole.</title>
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/brand/favicon_32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/brand/favicon_180.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="start">
+      <header class="topbar">
+        <a class="logo" href="./" aria-label="archy home"><!--archy:logo--></a>
+        <a class="link" href="./sandbox.html">Sensor sandbox</a>
+      </header>
+      <div class="hero">
+        <h1>Check your arch.<br />Print your insole.</h1>
+        <p class="sub">A flat-foot screen from a few cheap pressure sensors.</p>
+      </div>
+
+      <section class="group" aria-labelledby="h-example">
+        <h2 id="h-example" class="sr">Try an example</h2>
+        <div class="tiles">
+          <button type="button" class="tile" data-example="1"><span class="name">Flatter arch</span></button>
+          <button type="button" class="tile" data-example="2"><span class="name">Typical arch</span></button>
+          <button type="button" class="tile" data-example="3"><span class="name">Higher arch</span></button>
+        </div>
+      </section>
+
+      <section class="group" aria-labelledby="h-scans">
+        <h2 id="h-scans" class="sr">Real foot scans</h2>
+        <div class="tiles">
+          <button type="button" class="tile" data-scan="ishaan"><span class="name">Ishaan's foot</span><span class="note">iPhone scan</span></button>
+          <button type="button" class="tile" data-scan="prakhar"><span class="name">Prakhar's foot</span><span class="note">iPhone scan</span></button>
+          <div class="tile panel" id="scan-drop">
+            <span class="name">Your foot scan</span>
+            <p class="note">Drop an STL file here, or pick one.</p>
+            <div class="controls">
+              <button type="button" id="scan-upload" class="btn primary">Upload scan</button>
+              <input type="file" id="scan-file" accept=".stl,.obj,.usdz" hidden />
+            </div>
+            <p id="scan-error" class="note" role="status" hidden></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="group" aria-labelledby="h-more">
+        <h2 id="h-more" class="sr">Recordings and your own sensors</h2>
+        <div class="tiles">
+          <div class="tile panel">
+            
+            <span class="name">Plate walk</span>
+            <p class="note">See what 6 sensors would read.</p>
+            <div class="controls">
+              <select id="plate-step" aria-label="Clinic plate recording, which person"></select>
+              <button type="button" id="go-plate" class="btn">Watch</button>
+            </div>
+          </div>
+          <div class="tile panel">
+            
+            <span class="name">Recorded walk</span>
+            <p class="note">48 sensors, real steps.</p>
+            <div class="controls">
+              <select id="recorded" aria-label="Recorded walk, which person and foot"></select>
+              <button type="button" id="go-recorded" class="btn">Watch</button>
+            </div>
+          </div>
+          <div class="tile panel">
+            <span class="name">Your sensors</span>
+            <fieldset class="seg" aria-label="Which foot?">
+              <label><input type="radio" name="side" value="left" checked /><span>Left</span></label>
+              <label><input type="radio" name="side" value="right" /><span>Right</span></label>
+            </fieldset>
+            <div class="controls">
+              <button type="button" id="connect" class="btn primary">Connect sensor</button>
+            </div>
+            <div class="controls">
+              <select id="demo-foot" aria-label="Which foot the demo sensor pretends to be">
+                <option value="flat">Flatter arch</option><option value="normal" selected>Typical arch</option><option value="high arch">Higher arch</option>
+              </select>
+              <button type="button" id="go-demo" class="btn">Demo sensor</button>
+            </div>
+            <p id="serial-note" class="note" hidden>This browser cannot connect to sensors. Use Chrome or Edge, or try the demo.</p>
+            <p id="connect-error" class="note err" role="alert" hidden></p>
+          </div>
+        </div>
+      </section>
+      <p class="foot">Runs in your browser. Nothing is uploaded.</p>
+    </div>
+
+    <main id="app" hidden>
+      <header class="appbar">
+        <div class="appbrand">
+          <a class="logo mark" href="./" aria-label="archy home"><!--archy:mark--></a>
+          <button type="button" id="back" class="btn ghost">Back</button>
+        </div>
+        <nav class="seg" aria-label="Steps">
+          <button type="button" data-screen="watch">Watch</button>
+          <button type="button" data-screen="result">Result</button>
+          <button type="button" data-screen="insole">Insole</button>
+        </nav>
+        <span class="spacer"></span>
+      </header>
+      <canvas id="view" tabindex="0" aria-label="3D view of the foot on the insole. Drag to orbit, scroll to zoom. Arrow keys rotate, plus and minus zoom."></canvas>
+      <aside aria-label="Walkthrough">
+        <section id="s-watch" aria-label="Watch">
+          <h2 id="who" class="title"></h2>
+          <div class="row">
+            <button type="button" id="play" class="btn" aria-label="Play or pause">Pause</button>
+            <label class="check"><input id="show-foot" type="checkbox" checked /> Show foot</label>
+          </div>
+          <fieldset id="variant-box" class="seg" aria-label="Show" hidden>
+            <label><input type="radio" name="variant" value="plate" checked /><span>Clinic plate</span></label>
+            <label><input type="radio" name="variant" value="kit" /><span>6-sensor kit</span></label>
+          </fieldset>
+          <div id="live-box" hidden>
+            <p id="live-status" aria-live="polite"></p>
+            <ul id="bars" aria-label="Pressure under each sensor"></ul>
+          </div>
+          <div id="legend" role="img" aria-label="Color scale. Darker is less pressure, lighter is more pressure.">
+            <div id="legend-bar"></div>
+            <div class="row between"><span>Less pressure</span><span>More pressure</span></div>
+          </div>
+          <button type="button" id="to-result" class="btn primary wide">See result</button>
+        </section>
+
+        <section id="s-result" aria-label="Result" hidden>
+          <p id="headline" class="headline" aria-live="polite"></p>
+          <div id="scale" role="img" aria-label="">
+            <div class="track"><span class="marker" id="marker"></span></div>
+            <div class="labels"><span>Lower</span><span>Typical</span><span>Higher</span></div>
+          </div>
+          <p id="meaning"></p>
+          <p id="sole-note" hidden></p>
+          <p id="disclaimer"></p>
+          <button type="button" id="to-insole" class="btn primary wide">See your insole</button>
+        </section>
+
+        <section id="s-insole" aria-label="Your insole" hidden>
+          <h2 class="title">Your insole</h2>
+          <p id="support" class="headline"></p>
+          <p id="insole-more"></p>
+          <button type="button" id="download" class="btn primary wide">Download STL for 3D printing</button>
+        </section>
+
+        <div id="est-box" hidden>
+          <fieldset class="seg" aria-label="Estimated pressure">
+            <label><input type="radio" name="est" value="before" checked /><span>Before</span></label>
+            <label><input type="radio" name="est" value="with" /><span>With insole</span></label>
+          </fieldset>
+          <p id="est-text"></p>
+        </div>
+
+        <details id="details">
+          <summary>Details</summary>
+          <table id="indices"></table>
+          <p id="votes"></p>
+          <p id="scan-note"></p>
+          <label id="weight-box" hidden>Body weight (kg) <input id="weight" type="number" min="30" max="200" step="1" value="70" inputmode="numeric" /></label>
+          <div class="grid2">
+            <label>Map <select id="mapmode" aria-label="Show frame, peak, or difference from healthy"><option value="frame">frame</option><option value="peak">peak</option><option value="diff">vs healthy (MUN104)</option></select></label>
+            <label>Surface <select id="surface" aria-label="Flat or pressure terrain"><option value="flat">flat</option><option value="terrain">terrain</option></select></label>
+            <label>Colors <select id="cmap" aria-label="Color map"><option value="viridis">viridis</option><option value="cividis">cividis</option></select></label>
+            <label>Speed <select id="speed" aria-label="Playback speed"><option value="0.1">0.1x</option><option value="0.25" selected>0.25x</option><option value="0.5">0.5x</option><option value="1">1x</option></select></label>
+          </div>
+          <div class="row">
+            <label class="check"><input id="patterns" type="checkbox" /> Patterns</label>
+            <label class="check"><input id="sensors" type="checkbox" checked /> Sensors</label>
+            <label class="check"><input id="cop" type="checkbox" checked /> CoP</label>
+            <output id="time" aria-live="off"></output>
+          </div>
+          <input id="scrub" type="range" min="0" max="1" step="1" value="0" aria-label="Scrub through the step" />
+          <output id="live"></output>
+          <p class="refs">
+            Arch index: Cavanagh and Rodgers 1987 (&gt;0.26 flat, &lt;0.21 high). Staheli: Staheli et al. 1987 (&gt;0.89 flat, &lt;0.44 high). Chippaux-Smirak: Forriol and Pascual 1990 (&gt;45% flat).
+            Healthy template: MUN104, Pataky et al. 2011. Foot scans: Schuster et al. 2024, CC0.
+          </p>
+          <ul id="values" aria-label="Sensor values in kilopascals"></ul>
+        </details>
+        <p class="foot">Runs in your browser. Nothing is uploaded.</p>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
