@@ -1,0 +1,33 @@
+/* Shared <select> style for both pages (needs theme.css tokens). Height comes from --control-h so each page can match its buttons. */
+:root {
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2326251e' stroke-opacity='.65' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23edecec' stroke-opacity='.65' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  }
+}
+:root[data-theme="dark"] {
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23edecec' stroke-opacity='.65' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: 500 .9375rem/1.2 var(--font-sans);
+  color: var(--text);
+  min-height: var(--control-h, 2.75rem);
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 36px 0 12px;
+  background: var(--card) var(--chevron) no-repeat right 12px center / 12px 12px;
+  border: 1px solid var(--border-03);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-overflow: ellipsis;
+  transition: background-color .12s;
+}
+select:hover { background-color: var(--hover); }
+select:focus-visible { outline: 2px solid var(--accent, var(--fg)); outline-offset: 2px; }
+select:disabled { opacity: .4; cursor: not-allowed; }
+option { background: var(--bg); color: var(--text); }

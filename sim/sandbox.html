@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>archy sensor sandbox</title>
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/brand/favicon_32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/brand/favicon_180.png" />
+  </head>
+  <body>
+    <div id="app">
+      <main id="side">
+        <a class="logo" href="./" aria-label="archy home"><!--archy:logo--></a>
+        <h1 id="title">Can <span id="n">6</span> sensors see your arch?</h1>
+
+        <section id="answer" aria-live="polite" aria-labelledby="title">
+          <p class="score"><strong id="score">-</strong><span>of the picture</span></p>
+          <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+          <p id="verdict" class="verdict">&nbsp;</p>
+        </section>
+
+        <div class="controls">
+          <div class="seg seg-lg" role="radiogroup" aria-label="Foot type">
+            <label><input type="radio" name="preset" value="0" /><span>Flat</span></label>
+            <label><input type="radio" name="preset" value="0.5" /><span>Typical</span></label>
+            <label><input type="radio" name="preset" value="1" /><span>High arch</span></label>
+          </div>
+          <button type="button" id="walk" class="btn primary" aria-pressed="false">
+            <svg id="walk-ico" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor" /></svg>
+            <span id="walk-txt">Walk</span>
+          </button>
+        </div>
+
+        <div id="hint" class="hint" role="status" hidden>
+          <p id="hint-text"></p>
+          <button type="button" id="hint-close" class="icon-btn" aria-label="Dismiss hint">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+
+        <div class="row">
+          <button type="button" id="add" class="btn">Add sensor</button>
+          <button type="button" id="reset" class="btn ghost">Reset sensors</button>
+        </div>
+
+        <div class="export">
+          <button type="button" id="export-stl" class="btn primary" aria-label="Download insole STL">Download insole STL</button>
+          <p id="export-note" class="small" aria-live="polite"></p>
+        </div>
+
+        <details id="builders">
+          <summary>For builders</summary>
+          <div class="builders">
+            <section aria-labelledby="h-pose">
+              <h2 id="h-pose">Foot</h2>
+              <label class="sl">Arch, flat to high <input type="range" id="arch" min="0" max="1" step="0.01" value="0.5" /><output id="o-arch"></output></label>
+              <label class="sl">Weight, heel to toes <input type="range" id="shift" min="-1" max="1" step="0.01" value="0" /><output id="o-shift"></output></label>
+              <label class="sl">Roll, in to out <input type="range" id="roll" min="-1" max="1" step="0.01" value="0" /><output id="o-roll"></output></label>
+              <label class="sl">Body weight <input type="range" id="kg" min="40" max="130" step="1" value="70" /><output id="o-kg"></output></label>
+              <label class="chk"><input type="checkbox" id="showfoot" checked /> Show foot outline</label>
+            </section>
+
+            <section aria-labelledby="h-press">
+              <h2 id="h-press">Press with a finger</h2>
+              <div class="seg" role="radiogroup" aria-label="Pointer mode">
+                <label><input type="radio" name="mode" value="orbit" checked /><span>Rotate</span></label>
+                <label><input type="radio" name="mode" value="press" /><span>Press</span></label>
+              </div>
+              <label class="sl">Press radius <input type="range" id="pr" min="3" max="30" step="1" value="8" /><output id="o-pr"></output></label>
+              <label class="sl">Press force <input type="range" id="pf" min="2" max="80" step="1" value="20" /><output id="o-pf"></output></label>
+            </section>
+
+            <section aria-labelledby="h-elec">
+              <h2 id="h-elec">Electronics</h2>
+              <div class="row">
+                <label class="chk">Board
+                  <select id="board" aria-label="Board">
+                    <option value="uno">Uno / Nano, 10-bit, 5 V</option>
+                    <option value="esp32">ESP32, 12-bit, 3.3 V</option>
+                  </select>
+                </label>
+                <label class="chk">Colors
+                  <select id="cmap" aria-label="Colormap"><option value="viridis">viridis</option><option value="cividis">cividis</option></select>
+                </label>
+                <button type="button" id="remove" class="btn sm">Remove selected</button>
+              </div>
+              <table id="tbl">
+                <thead><tr><th scope="col">Sensor</th><th scope="col">kPa</th><th scope="col">kohm</th><th scope="col">V</th><th scope="col">ADC</th><th scope="col">seen</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <pre id="serial" aria-label="Serial output the firmware would print"></pre>
+              <p id="pins" class="small"></p>
+            </section>
+
+            <section aria-labelledby="h-out">
+              <h2 id="h-out">Build it</h2>
+              <div class="row">
+                <button type="button" id="copy" class="btn sm">Copy layout</button>
+                <button type="button" id="connect" class="btn sm" hidden>Connect real kit</button>
+                <button type="button" id="tare" class="btn sm" hidden>Tare</button>
+              </div>
+              <p id="status" class="small" role="status"></p>
+              <p id="note" class="small">Measure y from the back of the heel and x from the inner edge. Sensor face up, active disc centered on the point. Scale by your insole length divided by <span id="len"></span> mm.</p>
+            </section>
+          </div>
+        </details>
+      </main>
+
+      <section id="stage" aria-label="3D insole">
+        <canvas id="c" tabindex="0" aria-label="3D insole with six pressure sensors. Drag a sensor to move it. Arrow keys move the selected sensor, Delete removes it. Escape deselects."></canvas>
+        <div class="seg stage-seg" role="radiogroup" aria-label="What the heatmap shows">
+          <label><input type="radio" name="view" value="true" checked /><span>Real pressure</span></label>
+          <label><input type="radio" name="view" value="seen" /><span>What sensors see</span></label>
+        </div>
+        <div id="legend" aria-hidden="true"><span>Less</span><i id="lg-bar"></i><span>More</span></div>
+        <div class="stage-foot">
+          <span class="small">Drag a sensor to move it. Drag the background to turn the view.</span>
+          <button type="button" id="camera" class="btn sm ghost">Top view</button>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/sandbox/main.ts"></script>
+  </body>
+</html>
