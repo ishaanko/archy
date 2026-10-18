@@ -89,6 +89,15 @@ final class ScanFlowModel {
         }
         guard session == nil, phase == .ready else { return }
 
+        // First scan of this launch: show the tips first. The camera starts when they're closed,
+        // so it never initializes paused under the sheet.
+        if !hasShownTips {
+            hasShownTips = true
+            isShowingTips = true
+            Log.capture.notice("Tips sheet shown; camera starts after Got It")
+            return
+        }
+
         // Check before creating a folder: the session fails right away below 4 GB free.
         let freeBytes = ScanFolder.freeBytes()
         Log.files.notice("Free space: \(freeBytes.map(ScanFolder.formatted) ?? "unknown", privacy: .public)")
@@ -155,22 +164,20 @@ final class ScanFlowModel {
         session.resume()
     }
 
-    /// Shows the tips sheet once per app launch, the first time the camera is up.
-    func showTipsIfFirstScan() {
-        guard !hasShownTips else { return }
-        hasShownTips = true
-        setShowingTips(true)
-    }
-
-    /// The camera stays on screen under the sheet, so pause and resume the session by hand
-    /// (as Apple's sample does for its sheets).
+    /// Opened from the "?" button, the camera stays on screen under the sheet, so the session is
+    /// paused and resumed by hand (as Apple's sample does for its sheets). Closing the first-launch
+    /// sheet starts the camera instead.
     func setShowingTips(_ shown: Bool) {
         guard shown != isShowingTips else { return }
         isShowingTips = shown
-        Log.capture.notice("Tips sheet \(shown ? "shown, session paused" : "closed, session resumed", privacy: .public)")
         if shown {
+            Log.capture.notice("Tips sheet shown, session paused")
             session?.pause()
+        } else if session == nil {
+            Log.capture.notice("Tips sheet closed, starting the camera")
+            startSession()
         } else {
+            Log.capture.notice("Tips sheet closed, session resumed")
             lastPhotoDate = .now
             session?.resume()
         }
