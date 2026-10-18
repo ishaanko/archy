@@ -24,9 +24,12 @@ struct ModelViewerView: View {
                 Text("Your Foot Scan")
                     .font(.title2.bold())
                 if let size = model.modelSize {
-                    let cm = size * 100
-                    // The model is Y up: x = width, y = height, z = length.
-                    Text("\(cm.z, format: .number.precision(.fractionLength(1))) cm long · \(cm.x, format: .number.precision(.fractionLength(1))) cm wide · \(cm.y, format: .number.precision(.fractionLength(1))) cm tall")
+                    // Y is up. Object Capture doesn't line the foot up with x or z consistently,
+                    // so the longer horizontal side is the length.
+                    let length = max(size.x, size.z) * 100
+                    let width = min(size.x, size.z) * 100
+                    let height = size.y * 100
+                    Text("\(length, format: .number.precision(.fractionLength(1))) cm long · \(width, format: .number.precision(.fractionLength(1))) cm wide · \(height, format: .number.precision(.fractionLength(1))) cm tall")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -40,7 +43,7 @@ struct ModelViewerView: View {
                         // Display only: shift the model so its center sits at the origin, where the camera orbits.
                         // The file on disk keeps its real-world meter coordinates.
                         let bounds = foot.visualBounds(relativeTo: nil)
-                        foot.position = -bounds.center
+                        foot.position -= bounds.center
                         let pivot = Entity()
                         pivot.addChild(foot)
                         content.add(pivot)
@@ -100,7 +103,7 @@ struct ModelViewerView: View {
         .padding()
         .task { await prepareShareItems() }
         .sheet(isPresented: $isShowingShareSheet) {
-            ShareSheet(items: shareItems)
+            ShareSheet(items: shareItems) { isShowingShareSheet = false }
                 .presentationDetents([.medium, .large])
         }
     }
