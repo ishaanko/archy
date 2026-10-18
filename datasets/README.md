@@ -1,11 +1,17 @@
 # datasets
 
-Open foot datasets for the flat-foot screening app. Raw data is gitignored (`datasets/raw/`); everything is reproducible.
+Open foot datasets for the flat-foot screening app. Raw data is gitignored (`datasets/raw/`, about 7.6 GB extracted); everything is reproducible.
+
+Start here:
+- What we found: `analysis/REPORT.md` (arch measurements on 100 scans, CAD WALK healthy vs hallux valgus, Takata flat vs normal). Results as CSV in `analysis/out/`.
+- What each dataset contains and what's broken: `reports/validation.md`.
+- Reference implementation of the arch indices (port this to Swift): `analysis/footprint.py`.
 
 ```
 uv run --project datasets python datasets/fetch.py list
 uv run --project datasets python datasets/fetch.py get all            # add --include-large for treadmill_data.mat (281 MB)
 uv run --project datasets python datasets/validate.py                 # writes datasets/reports/validation.{json,md}
+uv run --project datasets python datasets/analysis/scan_measure.py    # likewise pressure_indices.py, takata_regions.py
 ```
 
 Needs `uv`. `.rar` extraction uses `bsdtar` (built into macOS); `7zz` 26.04 cannot read this archive's RAR v6 method.
@@ -37,4 +43,5 @@ Kaggle photos-of-foots (login), Kaggle pesplanus mirror (redundant), Foot3D and 
 - `pesplanus-xray`: Mendeley folders are unnamed; labels come from folder file counts matching the description (402 pes planus, 440 normal). Only 540 of 842 files are unique by hash, and filenames do not identify patients, so dedupe before splitting.
 - `schuster-scans`: all healthy, no arch labels. `_Lr` = left-dominant participant, mirrored to look right; `001_*_L` is an unmirrored left foot the README does not explain.
 - `fsr-rectus-valgus` labels are rearfoot alignment (rectus/valgus), not arch type.
+- CAD WALK license conflict: Zenodo lists CC BY 4.0, but the bundled `Readme.pdf` says CC BY-NC-SA. Fine for the demo; keep it out of anything paid until resolved.
 - `mun104` has no published checksum; sha256 is recorded in the manifest and report on first fetch.
