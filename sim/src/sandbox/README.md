@@ -7,8 +7,8 @@
 - `view.ts` three.js scene: insole heatmap, discs, wires, Nano model, foot, press marker.
 - `main.ts` state, panel, input. `layout.ts` the Copy layout JSON.
 
-Use: drag sensors (or select, then arrows / Delete); Add puts a sensor where the error is largest; Shift-drag or Press mode pushes the insole; toggle True pressure vs What the sensors see. Walk uses peaks over the cycle for error and verdicts.
+Use: one question ("Can N sensors see your arch?"), one answer (match score = 100% minus coverage error, plus "They think / Real foot" verdict, orange only when they differ). Pick Flat / Typical / High arch, press Walk, drag sensors (or select, then arrows / Delete). A dismissible hint walks through: drag Inner arch, try another foot, Add sensor. The canvas toggle switches Real pressure / What sensors see. Everything else (pose sliders, press tool, board, electronics table, serial, Copy layout, Connect real kit) is under "For builders". Camera auto-fits insole + foot + board on load, resize and foot change. Styled with `../theme.css` (cursor.com tokens); the canvas reads `--bg` at runtime.
 
-Query params: `arch=flat|normal|high|0..1`, `shift`, `roll` (-1..1), `kg`, `walk=1`, `phase=0..1` (freeze gait), `view=sensors`, `mode=press`, `press=x,y`, `pr`, `pf`, `board=esp32`, `cmap=cividis`, `foot=0`.
+Query params: `arch=flat|normal|high|0..1`, `shift`, `roll` (-1..1), `kg`, `walk=1`, `phase=0..1` (freeze gait), `view=sensors`, `mode=press`, `press=x,y`, `pr`, `pf`, `board=esp32`, `cmap=cividis`, `foot=0`, `theme=light|dark`, `builders=1` (open panel), `hint=0..4` (4 hides).
 
 Real kit: "Connect real kit" (Chrome/Edge) swaps the readings for the device's; sensor count is fixed at 6 then.

@@ -1,3 +1,4 @@
+import "../theme.css"
 import "./sandbox.css"
 import { colormapCss, type ColormapName } from "../core/colormap"
 import { stancePose, type FootPose } from "../core/gait"
@@ -6,32 +7,36 @@ import { edgeDistance, footOutline, inside } from "../core/outline"
 import { createPressureModel, interpolate, sampleGrid, SPARSE_KERNEL, type PressureModel } from "../core/pressure"
 import type { Template } from "../core/template"
 import { readArch, type ArchLevel } from "../core/verdict"
-import { connectSerial, isSerialSupported, SENSOR_NAMES, SENSOR_POSITIONS, type SerialSensor } from "../hardware"
+import { connectSerial, INNER_ARCH_INDEX, isSerialSupported, SENSOR_NAMES, SENSOR_POSITIONS, type SerialSensor } from "../hardware"
 import { addPress, coverageError, DEFAULT_POSE, standingField, walkingField, WALK_SECONDS, worstSpot, type Pose, type Press } from "./field"
 import { BOARDS, DISC_SAMPLES, readFsr, serialText, type BoardId, type FsrReading } from "./fsr"
 import { insoleBounds, layoutJson, type SensorDef } from "./layout"
-import { SandboxScene, SENSOR_COLORS } from "./view"
+import { SandboxScene } from "./view"
 
 const MAX_SENSORS = 16
 const $ = <T extends Element>(sel: string) => document.querySelector<T>(sel)!
 
 const el = {
+  builders: $<HTMLDetailsElement>("#builders"),
   canvas: $<HTMLCanvasElement>("#c"),
-  labels: $<HTMLElement>("#labels"),
   arch: $<HTMLInputElement>("#arch"), shift: $<HTMLInputElement>("#shift"), roll: $<HTMLInputElement>("#roll"), kg: $<HTMLInputElement>("#kg"),
   pr: $<HTMLInputElement>("#pr"), pf: $<HTMLInputElement>("#pf"),
-  walk: $<HTMLInputElement>("#walk"), showFoot: $<HTMLInputElement>("#showfoot"),
+  walk: $<HTMLButtonElement>("#walk"), showFoot: $<HTMLInputElement>("#showfoot"),
   cmap: $<HTMLSelectElement>("#cmap"), board: $<HTMLSelectElement>("#board"),
-  err: $<HTMLElement>("#r-err"), verdictTrue: $<HTMLElement>("#r-true"), verdictSeen: $<HTMLElement>("#r-seen"),
+  n: $<HTMLElement>("#n"), score: $<HTMLElement>("#score"), meter: $<HTMLElement>("#meter"), verdict: $<HTMLElement>("#verdict"),
+  hint: $<HTMLElement>("#hint"), hintText: $<HTMLElement>("#hint-text"), hintClose: $<HTMLButtonElement>("#hint-close"),
+  walkIco: $<SVGElement>("#walk-ico"), walkTxt: $<HTMLElement>("#walk-txt"),
   tbody: $<HTMLTableSectionElement>("#tbl tbody"), serial: $<HTMLElement>("#serial"), pins: $<HTMLElement>("#pins"), status: $<HTMLElement>("#status"),
   add: $<HTMLButtonElement>("#add"), remove: $<HTMLButtonElement>("#remove"), reset: $<HTMLButtonElement>("#reset"),
   copy: $<HTMLButtonElement>("#copy"), connect: $<HTMLButtonElement>("#connect"), tare: $<HTMLButtonElement>("#tare"), camera: $<HTMLButtonElement>("#camera"),
-  legendMax: $<HTMLElement>("#lg-max"), legendBar: $<HTMLElement>("#lg-bar"), len: $<HTMLElement>("#len"),
+  legendBar: $<HTMLElement>("#lg-bar"), len: $<HTMLElement>("#len"),
 }
 
 // ---- state -----------------------------------------------------------------------------------------------------------
 
 const query = new URLSearchParams(location.search)
+const themeParam = query.get("theme")
+if (themeParam === "light" || themeParam === "dark") document.documentElement.dataset.theme = themeParam
 const archParam = query.get("arch")
 const ARCH_WORDS: Record<string, number> = { flat: 0, normal: 0.5, high: 1 }
 const num = (key: string, fallback: number) => {
@@ -59,6 +64,8 @@ const state = {
   cmap: (query.get("cmap") === "cividis" ? "cividis" : "viridis") as ColormapName,
   sensors: [] as SensorDef[],
   selected: null as number | null,
+  /** Guided hint: 0 drag Inner arch, 1 try another foot, 2 Add sensor, 3 done, 4 dismissed / off. */
+  hint: query.has("hint") ? Math.min(4, Math.max(0, num("hint", 0))) : 0,
   live: null as SerialSensor | null,
   liveKPa: null as Float32Array | null,
 }
@@ -66,6 +73,7 @@ const state = {
 const gainFor = (index: number) => 1 + 0.1 * Math.sin(index * 7.13 + 1.7)
 const defaultSensors = (): SensorDef[] => SENSOR_POSITIONS.map((p, i) => ({ name: SENSOR_NAMES[i], x: p.x, y: p.y, gain: gainFor(i) }))
 state.sensors = defaultSensors()
+const START_SENSORS = state.sensors.length
 const pressParam = query.get("press")?.split(",").map(Number)
 if (pressParam?.length === 2 && pressParam.every(Number.isFinite)) state.press = { x: pressParam[0], y: pressParam[1] }
 
@@ -113,7 +121,7 @@ function invalidate(what: { pose?: boolean; layout?: boolean; ui?: boolean } = {
 let scene: SandboxScene
 const sensorAt = (e: PointerEvent): number | null => {
   const r = el.canvas.getBoundingClientRect()
-  let best: number | null = null, bestD = 18
+  let best: number | null = null, bestD = 30
   state.sensors.forEach((s, i) => {
     const p = scene.screenOf(scene.surfacePoint(s.x, s.y))
     if (!p) return
@@ -188,7 +196,18 @@ el.canvas.addEventListener("keydown", (e) => {
   e.preventDefault()
 })
 
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)")
 scene = new SandboxScene(el.canvas, grid, outline, schedule)
+scene.controls.enableDamping = !reducedMotion.matches
+
+/** The canvas takes its colors from the CSS tokens so it blends into the page in either theme. */
+function applyTheme(): void {
+  const css = getComputedStyle(document.documentElement)
+  scene.setTheme(css.getPropertyValue("--bg").trim(), css.getPropertyValue("--fg").trim())
+  schedule()
+}
+applyTheme()
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme)
 new ResizeObserver(() => {
   scene.resize()
   schedule()
@@ -238,7 +257,8 @@ function syncControls(): void {
   el.kg.value = String(p.kg)
   el.pr.value = String(state.pressRadius)
   el.pf.value = String(state.pressForce)
-  el.walk.checked = state.walk
+  setWalkUi()
+  document.querySelectorAll<HTMLInputElement>('input[name="preset"]').forEach((r) => (r.checked = Number(r.value) === p.arch))
   el.showFoot.checked = state.showFoot
   el.cmap.value = state.cmap
   el.board.value = state.board
@@ -255,6 +275,7 @@ function syncControls(): void {
 for (const key of ["arch", "shift", "roll", "kg"] as const)
   el[key].addEventListener("input", () => {
     state.pose[key] = Number(el[key].value)
+    if (key === "arch") advanceHintOnFootChange()
     syncControls()
     invalidate({ pose: true })
   })
@@ -265,15 +286,22 @@ for (const key of ["pr", "pf"] as const)
     syncControls()
     invalidate()
   })
-document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((b) =>
-  b.addEventListener("click", () => {
-    state.pose.arch = Number(b.dataset.preset)
+document.querySelectorAll<HTMLInputElement>('input[name="preset"]').forEach((r) =>
+  r.addEventListener("change", () => {
+    state.pose.arch = Number(r.value)
+    advanceHintOnFootChange()
     syncControls()
     invalidate({ pose: true })
   }),
 )
-el.walk.addEventListener("change", () => {
-  state.walk = el.walk.checked
+function setWalkUi(): void {
+  el.walk.setAttribute("aria-pressed", String(state.walk))
+  el.walkTxt.textContent = state.walk ? "Stop" : "Walk"
+  el.walkIco.innerHTML = state.walk ? '<rect x="2.5" y="2.5" width="9" height="9" rx="1" fill="currentColor" />' : '<path d="M3 1.5v11l9-5.5z" fill="currentColor" />'
+}
+el.walk.addEventListener("click", () => {
+  state.walk = !state.walk
+  setWalkUi()
   invalidate({ pose: true })
 })
 el.showFoot.addEventListener("change", () => {
@@ -366,12 +394,9 @@ function updateButtons(): void {
   el.reset.disabled = !!state.live
 }
 
-// ---- table and labels ------------------------------------------------------------------------------------------------
+// ---- sensor table ------------------------------------------------------------------------------------------------
 
-const colorOf = (i: number) => SENSOR_COLORS[i % SENSOR_COLORS.length]
 let rowCells: HTMLElement[][] = []
-let labelEls: HTMLElement[] = []
-let boardLabel: HTMLElement
 
 function rebuildSensorUi(): void {
   el.tbody.replaceChildren()
@@ -385,9 +410,7 @@ function rebuildSensorUi(): void {
     b.className = "name"
     b.setAttribute("aria-pressed", String(i === state.selected))
     b.setAttribute("aria-label", `Select sensor ${i + 1}, ${s.name}`)
-    const sw = document.createElement("i")
-    sw.style.background = colorOf(i)
-    b.append(sw, `${i + 1} ${s.name}`)
+    b.append(`${i + 1} ${s.name}`)
     b.addEventListener("click", () => select(i === state.selected ? null : i))
     th.append(b)
     const cells = Array.from({ length: 5 }, () => document.createElement("td"))
@@ -395,37 +418,57 @@ function rebuildSensorUi(): void {
     el.tbody.append(tr)
     return cells
   })
-  el.labels.replaceChildren()
-  labelEls = state.sensors.map((s, i) => {
-    const d = document.createElement("div")
-    d.className = "lbl" + (i === state.selected ? " sel" : "")
-    const sw = document.createElement("i")
-    sw.style.background = colorOf(i)
-    d.append(sw, `${i + 1} ${s.name}`)
-    el.labels.append(d)
-    return d
-  })
-  boardLabel = document.createElement("div")
-  boardLabel.className = "lbl"
-  boardLabel.textContent = BOARDS[state.board].label
-  el.labels.append(boardLabel)
   const n = state.sensors.length
+  el.n.textContent = String(n)
+  document.title = `Can ${n} sensors see your arch?`
   el.pins.textContent = n > 8 ? "Beyond 8 sensors you need an analog multiplexer (CD74HC4067)." : n > 6 ? "An Uno has 6 analog pins, a Nano has 8." : ""
   updateButtons()
 }
 
-function placeLabels(): void {
-  const put = (d: HTMLElement, p: { x: number; y: number } | null) => {
-    d.style.display = p ? "" : "none"
-    if (p) d.style.transform = `translate(${p.x.toFixed(0)}px, ${p.y.toFixed(0)}px) translate(-50%, -100%)`
+
+// ---- guided hint -----------------------------------------------------------------------------------------------------
+
+let score: number | null = null
+let hintStartScore: number | null = null
+let shownHint = state.hint
+const innerArchIndex = () => state.sensors.findIndex((s) => s.name === SENSOR_NAMES[INNER_ARCH_INDEX])
+/** The sensor the current hint talks about (shown with a label and an orange ring). */
+const hintedSensor = (): number | null => (state.hint === 0 && innerArchIndex() >= 0 ? innerArchIndex() : null)
+
+const HINTS = [
+  () => "Try dragging the Inner arch sensor toward the middle of the foot.",
+  () => `Nice${score !== null && hintStartScore !== null ? `, the score went from ${hintStartScore}% to ${score}%` : ""}. Now pick another foot. Does it still see the arch?`,
+  () => "Press Add sensor. It goes where your sensors are missing the most.",
+  () => "That is the idea: where cheap sensors sit decides what they can see. Open For builders for wiring and numbers.",
+]
+
+/** Advances the hint when the user has done what it asked; called after each compute. */
+function updateHint(): void {
+  const i = innerArchIndex()
+  if (state.hint === 0 && i >= 0) {
+    const home = SENSOR_POSITIONS[INNER_ARCH_INDEX], s = state.sensors[i]
+    hintStartScore ??= score
+    if (Math.hypot(s.x - home.x, s.y - home.y) > 6) state.hint = 1
+  } else if (state.hint === 2 && state.sensors.length > START_SENSORS) state.hint = 3
+  if (state.hint !== shownHint) {
+    shownHint = state.hint
+    sensorUiDirty = true
   }
-  state.sensors.forEach((s, i) => put(labelEls[i], scene.screenOf(scene.surfacePoint(s.x, s.y, 12))))
-  put(boardLabel, scene.screenOf(scene.boardAnchor()))
+  const text = state.hint < HINTS.length ? HINTS[state.hint]() : ""
+  el.hint.hidden = !text
+  setText(el.hintText, text)
 }
+function advanceHintOnFootChange(): void {
+  if (state.hint === 1) state.hint = 2
+}
+el.hintClose.addEventListener("click", () => {
+  state.hint = 4
+  invalidate({ ui: true })
+})
 
 // ---- per-frame compute -----------------------------------------------------------------------------------------------
 
-const LEVEL_TEXT: Record<ArchLevel, string> = { lower: "Lower arch", typical: "Typical", higher: "Higher arch" }
+const LEVEL_TEXT: Record<ArchLevel, string> = { lower: "lower arch", typical: "typical arch", higher: "higher arch" }
 const archOf = (map: Float32Array) => {
   const idx = computeIndices(grid, map)
   return idx ? readArch(idx).level : null
@@ -446,7 +489,6 @@ function compute(now: number): void {
   if (poseDirty) {
     stand = standingField(grid, template, pose)
     vmax = Math.ceil((Math.max(...stand) * 1.3) / 10) * 10
-    setText(el.legendMax, `${vmax} kPa`)
     poseDirty = false
   }
   if (layoutDirty) {
@@ -488,13 +530,20 @@ function compute(now: number): void {
 
   const err = coverageError(grid, truePeak, seenPeak)
   const aTrue = archOf(truePeak), aSeen = archOf(seenPeak)
-  setText(el.err, state.live || Number.isNaN(err) ? "n/a" : `${Math.round(err * 100)}%`)
-  setText(el.verdictTrue, aTrue ? LEVEL_TEXT[aTrue] : "No reading")
-  setText(el.verdictSeen, (aSeen ? LEVEL_TEXT[aSeen] : "No reading") + (aTrue !== aSeen ? " (differs)" : ""))
+  score = state.live || Number.isNaN(err) ? null : Math.max(0, Math.min(100, Math.round((1 - err) * 100)))
+  setText(el.score, score === null ? "n/a" : `${score}%`)
+  el.meter.style.width = `${score ?? 0}%`
+  const word = (a: ArchLevel | null) => (a ? LEVEL_TEXT[a] : "no reading")
+  const differs = aTrue !== aSeen
+  el.verdict.classList.toggle("differs", differs)
+  el.verdict.innerHTML = differs
+    ? `<span class="think">They think: <b>${word(aSeen)}</b>.</span> Real foot: <b>${word(aTrue)}</b>.`
+    : `They agree: <b>${word(aTrue)}</b>.`
+  updateHint()
 
   if (sensorUiDirty) {
     rebuildSensorUi()
-    scene.setSensors(state.sensors.map((s, i) => ({ x: s.x, y: s.y, color: colorOf(i) })), state.selected)
+    scene.setSensors(state.sensors.map((s, i) => ({ x: s.x, y: s.y, hinted: i === hintedSensor() })), state.selected)
     sensorUiDirty = false
   }
   readings.forEach((r, i) => {
@@ -521,7 +570,10 @@ function compute(now: number): void {
   const key = footUrl(pose.arch)
   if (key !== footKey) {
     footKey = key
-    scene.setFoot(key).then(schedule, () => (el.status.textContent = "Foot model failed to load."))
+    scene.setFoot(key).then(() => {
+      scene.fit()
+      schedule()
+    }, () => (el.status.textContent = "Foot model failed to load."))
   }
   needsCompute = false
 }
@@ -530,12 +582,12 @@ function frame(now: number): void {
   raf = 0
   if (needsCompute || state.walk) compute(now)
   const moving = scene.render()
-  placeLabels()
   if (moving || state.walk) schedule()
 }
 
 // ---- go --------------------------------------------------------------------------------------------------------------
 
+el.builders.open = query.get("builders") === "1"
 el.len.textContent = String(Math.round(insoleLength))
 el.legendBar.style.background = `linear-gradient(90deg, ${colormapCss(state.cmap)})`
 scene.setBoard(state.board === "esp32")
