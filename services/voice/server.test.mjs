@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer, narrationCatalog } from './server.mjs';
+import { createServer, narrationCatalog, TTS_VOICE, TTS_SPEED } from './server.mjs';
 
 const proxyToken = 'test-proxy-token-at-least-24-characters';
 async function withServer(config, fn) {
@@ -31,7 +31,7 @@ test('successful audio uses fixed upstream contract', async () => {
     assert.equal(options.method, 'POST');
     assert.equal(options.redirect, 'error');
     assert.equal(options.headers.authorization, 'Bearer secret');
-    assert.deepEqual(JSON.parse(options.body), { text: narrationCatalog.welcome, voice_id: 'eve', language: 'en', speed: 0.85 });
+    assert.deepEqual(JSON.parse(options.body), { text: narrationCatalog.welcome, voice_id: TTS_VOICE, language: 'en', speed: TTS_SPEED });
     return new Response(new Uint8Array([73, 68, 51]), { headers: { 'content-type': 'audio/mpeg' } });
   } }, async url => {
     const response = await post(url, { script_id: 'welcome' });
