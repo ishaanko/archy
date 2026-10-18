@@ -1,7 +1,7 @@
 import {
-  AmbientLight, BufferAttribute, BufferGeometry, DataTexture, DirectionalLight, InstancedMesh, Line, LineBasicMaterial,
+  AmbientLight, BufferAttribute, BufferGeometry, Color, DataTexture, DirectionalLight, InstancedMesh, Line, LineBasicMaterial,
   LinearFilter, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, RGBAFormat, Scene,
-  SphereGeometry, SRGBColorSpace, UnsignedByteType, WebGLRenderer,
+  SphereGeometry, SRGBColorSpace, Vector3, UnsignedByteType, WebGLRenderer,
 } from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { createHeatmapImage, paintHeatmap, type ColormapName, type HeatmapImage } from "../core/colormap"
@@ -45,9 +45,8 @@ export class InsoleScene {
   constructor(canvas: HTMLCanvasElement, onChange: () => void) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
-    this.renderer.setClearColor(0x000000, 1)
-    this.camera.up.set(0, 0, 1)
-    this.camera.position.set(250, -190, 210)
+        this.camera.up.set(0, 0, 1)
+    this.camera.position.set(170, -190, 330)
     this.controls = new OrbitControls(this.camera, canvas)
     this.controls.target.set(0, 105, 35)
     this.controls.enableDamping = true
@@ -63,12 +62,41 @@ export class InsoleScene {
     this.material.emissiveIntensity = 0.4
   }
 
+  /** Matches the scene to the page: clear color is the CSS background (`bg`, a CSS color), materials follow light or dark. */
+  setTheme(bg: string, dark: boolean): void {
+    this.dark = dark
+    this.emptyColor = dark ? [32, 30, 24] : [176, 175, 168]
+    this.renderer.setClearColor(new Color(bg), 1)
+    const ink = dark ? 0xffffff : 0x26251e
+    ;(this.sensorMesh.material as MeshBasicMaterial).color.set(ink)
+    ;(this.trail.material as LineBasicMaterial).color.set(ink)
+    this.marker.material.color.set(ink)
+    this.plainMaterial.color.set(dark ? 0xc9c6bd : 0xa9a597)
+    this.baseMaterial.color.set(dark ? 0x3a372f : 0x8d897c)
+    this.material.emissiveIntensity = 0.4
+    this.foot?.setTone(dark)
+  }
+
   /** Resizes the drawing buffer to the canvas' CSS size. */
   resize(): void {
     const c = this.renderer.domElement
     this.renderer.setSize(c.clientWidth, c.clientHeight, false)
     this.camera.aspect = c.clientWidth / Math.max(1, c.clientHeight)
     this.camera.updateProjectionMatrix()
+    this.fitCamera()
+  }
+
+  /** Frames insole plus the posed foot (box in mm, heel/toe lift included) with margin, keeping the current view direction. */
+  fitCamera(): void {
+    const center = new Vector3(7, 111, 45)
+    const radius = Math.hypot(101, 258, 100) / 2
+    const vHalf = (this.camera.fov * Math.PI) / 360
+    const hHalf = Math.atan(Math.tan(vHalf) * this.camera.aspect)
+    const dist = (radius * 0.95) / Math.sin(Math.min(vHalf, hHalf))
+    const dir = this.camera.position.clone().sub(this.controls.target).normalize()
+    this.controls.target.copy(center)
+    this.camera.position.copy(center).addScaledVector(dir, dist)
+    this.controls.update()
   }
 
   /** Replaces the insole geometry. */
@@ -105,14 +133,14 @@ export class InsoleScene {
     geo.computeVertexNormals()
     this.baseZ = new Float32Array(insole.topCount)
     for (let i = 0; i < insole.topCount; i++) this.baseZ[i] = insole.positions[i * 3 + 2]
-    this.mesh = new Mesh(geo, [this.plain ? this.plainMaterial : this.material, new MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 })])
+    this.mesh = new Mesh(geo, [this.plain ? this.plainMaterial : this.material, this.baseMaterial])
     this.scene.add(this.mesh)
   }
 
   /** Repaints the heatmap texture and (in terrain mode) displaces the surface. */
   setField(f: FieldStyle): void {
     if (!this.mesh || !this.mesh0 || !this.grid || !this.img || !this.texture) return
-    paintHeatmap(this.img, this.grid, f.map, f.vmax, f.colormap, f.patterns, f.diverging)
+    paintHeatmap(this.img, this.grid, f.map, f.vmax, f.colormap, f.patterns, f.diverging, this.emptyColor)
     this.texture.needsUpdate = true
     const pos = this.mesh.geometry.getAttribute("position") as BufferAttribute
     const amp = f.diverging ? TERRAIN_MM / 2 : TERRAIN_MM
@@ -132,6 +160,9 @@ export class InsoleScene {
   private footCache = new Map<string, Promise<FootModel>>()
   private footVisible = true
   private plainMaterial = new MeshStandardMaterial({ color: 0xc9ccd1, roughness: 0.8 })
+  private baseMaterial = new MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 })
+  private dark = true
+  private emptyColor: readonly [number, number, number] = [32, 30, 24]
   private plain = false
 
   /** Shows the scanned foot model at `url` (loads once per url, then swaps instantly). */
@@ -142,8 +173,10 @@ export class InsoleScene {
     if (this.foot === next) return
     if (this.foot) this.scene.remove(this.foot.mesh)
     this.foot = next
+    next.setTone(this.dark)
     next.mesh.visible = this.footVisible
     this.scene.add(next.mesh)
+    this.fitCamera()
   }
 
   setFootVisible(on: boolean): void {

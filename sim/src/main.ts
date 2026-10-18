@@ -24,6 +24,8 @@ const $ = <T extends HTMLElement>(id: string): T => {
   return document.createElement("div") as unknown as T
 }
 const q = new URLSearchParams(location.search)
+// ?theme=light|dark forces a theme (for screenshots); otherwise the system theme applies.
+if (q.get("theme") === "light" || q.get("theme") === "dark") document.documentElement.dataset.theme = q.get("theme")!
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)")
 
 const [{ sensors, trials: realTrials }, template, feet, cadSteps] = await Promise.all([loadInsoleData(), loadTemplate(), loadFeet(), loadCadwalk()])
@@ -140,6 +142,19 @@ const liveFrame = new Float32Array(denseModels.left.grid.nx * denseModels.left.g
 
 const canvas = $<HTMLCanvasElement>("view")
 const view = new InsoleScene(canvas, () => invalidate())
+
+/** Scene background and materials follow the page theme (`--bg`, system or data-theme). */
+function syncTheme(): void {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()
+  const c = bg.replace("#", "")
+  const lum = c.length === 6 ? (parseInt(c.slice(0, 2), 16) * 0.299 + parseInt(c.slice(2, 4), 16) * 0.587 + parseInt(c.slice(4, 6), 16) * 0.114) / 255 : 0
+  view.setTheme(bg, lum < 0.5)
+  dirty = true
+  invalidate()
+}
+syncTheme()
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncTheme)
+new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] })
 const el = {
   start: $("start"), app: $("app"), back: $("back"), who: $("who"), play: $<HTMLButtonElement>("play"), showFoot: $<HTMLInputElement>("show-foot"),
   liveBox: $("live-box"), liveStatus: $("live-status"), bars: $("bars"), values: $("values"),
@@ -163,7 +178,7 @@ if (!isSerialSupported()) {
   $<HTMLButtonElement>("connect").disabled = true
 }
 for (const c of cadSteps) el.plateStep.append(new Option(c.title, c.id))
-if (cadSteps.length === 0) ($("go-plate").parentElement as HTMLElement).hidden = true
+if (cadSteps.length === 0) ($("go-plate").closest(".tile") as HTMLElement).hidden = true
 for (const t of realTrials) el.recorded.append(new Option(`Person ${t.id.slice(1).replace("-", ", ")} foot`, t.id))
 
 /** Schedules one frame; the loop keeps itself alive only while playing, receiving live frames, or while camera damping settles. */
