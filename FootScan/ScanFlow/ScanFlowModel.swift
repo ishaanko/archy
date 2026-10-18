@@ -34,7 +34,8 @@ final class ScanFlowModel {
     /// When the last photo was taken (or capture last resumed); drives the "keep moving" nudge.
     private(set) var lastPhotoDate = Date.now
 
-    /// The "Before You Scan" sheet is up; the session is paused underneath it.
+    /// The "Before You Scan" sheet is up. On the first scan of a launch it shows before the camera exists;
+    /// from the "?" button it shows over the paused camera.
     private(set) var isShowingTips = false
     private var hasShownTips = false
 
@@ -81,30 +82,36 @@ final class ScanFlowModel {
 
     // MARK: - Actions
 
-    /// Creates a fresh scan folder and capture session. Safe to call repeatedly.
-    func startSession() {
+    /// Starts a new scan. It checks free space first, then either shows the tips (first scan of
+    /// this launch; the camera starts in `tipsDismissed()`) or starts the camera right away.
+    /// Does nothing while a scan or the tips are already under way, so repeated calls are harmless.
+    func begin() {
         guard isSupported else {
             Log.capture.error("Not starting a session: this device doesn't support Object Capture")
             return
         }
-        guard session == nil, phase == .ready else { return }
+        guard session == nil, phase == .ready, !isShowingTips else { return }
 
-        // First scan of this launch: show the tips first. The camera starts when they're closed,
-        // so it never initializes paused under the sheet.
-        if !hasShownTips {
-            hasShownTips = true
-            isShowingTips = true
-            Log.capture.notice("Tips sheet shown; camera starts after Got It")
-            return
-        }
-
-        // Check before creating a folder: the session fails right away below 4 GB free.
+        // Before the tips and before creating a folder: the session fails right away below 4 GB free.
         let freeBytes = ScanFolder.freeBytes()
         Log.files.notice("Free space: \(freeBytes.map(ScanFolder.formatted) ?? "unknown", privacy: .public)")
         if let freeBytes, freeBytes < ScanFolder.requiredFreeBytes {
             fail(ScanFolder.storageMessage())
             return
         }
+
+        if !hasShownTips {
+            hasShownTips = true
+            isShowingTips = true
+            Log.capture.notice("Tips sheet shown; camera starts after it closes")
+            return
+        }
+        startCaptureSession()
+    }
+
+    /// Creates a fresh scan folder and capture session.
+    private func startCaptureSession() {
+        guard session == nil, phase == .ready else { return }
 
         let folder: ScanFolder
         do {
@@ -164,22 +171,32 @@ final class ScanFlowModel {
         session.resume()
     }
 
-    /// Opened from the "?" button, the camera stays on screen under the sheet, so the session is
-    /// paused and resumed by hand (as Apple's sample does for its sheets). Closing the first-launch
-    /// sheet starts the camera instead.
-    func setShowingTips(_ shown: Bool) {
-        guard shown != isShowingTips else { return }
-        isShowingTips = shown
-        if shown {
-            Log.capture.notice("Tips sheet shown, session paused")
-            session?.pause()
-        } else if session == nil {
-            Log.capture.notice("Tips sheet closed, starting the camera")
-            startSession()
-        } else {
-            Log.capture.notice("Tips sheet closed, session resumed")
+    /// The "?" button. The camera stays on screen under the sheet, so the session is paused by hand
+    /// (as Apple's sample does for its sheets). CaptureControls only offers "?" once the session is
+    /// past `.initializing`: pausing a session that hasn't finished starting can leave the camera stuck.
+    func showTips() {
+        guard !isShowingTips else { return }
+        isShowingTips = true
+        session?.pause()
+        Log.capture.notice("Tips sheet shown, session paused")
+    }
+
+    /// The sheet's binding setter. It only records the state; the work waits for `tipsDismissed()`.
+    func setTipsPresented(_ presented: Bool) {
+        isShowingTips = presented
+    }
+
+    /// Runs once the tips sheet has finished closing, and from the "Start Camera" fallback button.
+    /// Resumes the paused camera, or starts it after the first-launch sheet.
+    func tipsDismissed() {
+        isShowingTips = false
+        if let session {
             lastPhotoDate = .now
-            session?.resume()
+            session.resume()
+            Log.capture.notice("Tips sheet closed, session resumed")
+        } else {
+            Log.capture.notice("Tips sheet closed, starting the camera")
+            startCaptureSession()
         }
     }
 
@@ -196,7 +213,7 @@ final class ScanFlowModel {
         session?.cancel()
     }
 
-    /// Returns to a fresh camera from the result or failure screen. Earlier scans stay on disk.
+    /// Starts a new scan from the result or failure screen. Earlier scans stay on disk.
     func startOver() {
         Log.flow.notice("Start over")
         tearDownSession()
@@ -205,7 +222,7 @@ final class ScanFlowModel {
         canRetryProcessing = false
         folder = nil
         phase = .ready
-        startSession()
+        begin()
     }
 
     func cancelReconstruction() {
