@@ -1,0 +1,9 @@
+.DS_Store
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+# downloaded datasets stay local; fetch scripts reproduce them
+datasets/raw/
+sim/data/raw/
