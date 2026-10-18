@@ -54,6 +54,22 @@ label { display: inline-flex; gap: .5rem; align-items: center; min-height: 2.75r
 .topbar { display: flex; justify-content: space-between; align-items: center; min-height: 4.5rem; }
 .link { color: var(--text-sec); font-size: .9375rem; min-height: 2.75rem; display: inline-flex; align-items: center; }
 .link:hover { color: var(--text); }
+button.link {
+  font: inherit; font-size: .9375rem; background: none; border: 0; padding: 0; cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--border-03); text-underline-offset: 3px;
+}
+button.link:hover { text-decoration-color: currentColor; }
+.toplinks { display: flex; gap: 1.5rem; }
+/* Team contacts: a popover under the top bar, aligned to the page's right edge. */
+#team {
+  inset: 4.25rem max(1.5rem, calc((100vw - 68rem) / 2 + 1.5rem)) auto auto; margin: 0; width: min(19rem, calc(100vw - 3rem));
+  padding: .5rem 1.25rem; color: var(--text); background: var(--card); border: 1px solid var(--border-02); border-radius: var(--radius-lg);
+}
+#team .person { display: flex; flex-direction: column; gap: .125rem; padding: .75rem 0; font-size: .875rem; }
+#team .person + .person { border-top: 1px solid var(--border-02); }
+#team .who { font-weight: 500; margin-bottom: .125rem; }
+#team a { color: var(--text-sec); width: fit-content; }
+#team a:hover { color: var(--text); }
 .hero { padding: clamp(1rem, 4vh, 3rem) 0 clamp(1.5rem, 4vh, 2.5rem); }
 h1 { font: 500 clamp(2.5rem, 5.5vw, 4.25rem)/1.05 var(--font-display); letter-spacing: -.03em; }
 .sub { margin-top: 1.25rem; font-size: 1.125rem; color: var(--text-sec); }
