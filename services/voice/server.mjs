@@ -23,6 +23,7 @@ export const narrationCatalog = Object.freeze({
   'balance.hold': 'Hold with fingertip support. Look at one point and breathe.',
   'balance.relax': 'Rest in a comfortable stance and keep your support. Follow the leading foot shown for the next hold.',
   'balance.complete': 'Practice complete. Stay supported as you finish.',
+  'scan.tips': 'How to scan. Have a friend hold the phone while you stand still. Wipe the back camera lenses clean. Go barefoot, with trousers rolled above the ankle. Stand with your weight on both feet, on a plain, non-shiny floor. Use bright, even light, but not direct sun. Then do two slow laps around your foot: first at knee height, then near the floor. Hold still for about two minutes.',
   premium: 'Explore the movement studio for short-foot and supported balance lessons. AstroFit lets you prepare an insole quote request. Space Insole explores a future concept for your selected gravity environment. Requests stay local until you choose to share. Billing and checkout are not available. Accessibility is always included.',
   measurements: 'Follow the measurement guide and enter your results when ready.',
   space: 'SpaceLab lets you explore foot geometry and gravity environments. Gravity does not predict a change in your measured arch. You can explore a Space Insole design request or read the research.',

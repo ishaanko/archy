@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// The full "How to scan" guide: the diagram and every setup tip. Opens from the intro and from the camera's "?".
+/// The full "How to scan" guide: the diagram and every setup tip, with read-aloud.
+/// Opens from the intro and from the camera's "?".
 @MainActor
 struct ScanTipsSheet: View {
     let onDone: () -> Void
+    @AppStorage("accessibility.voiceGuidance") private var narration = false
+    @State private var voice = GuidanceVoice()
 
     private static let tips = [
         "Have a friend hold the phone. You stand still.",
@@ -18,9 +21,19 @@ struct ScanTipsSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.xl) {
-                Text("How to scan")
-                    .display(.title)
-                    .accessibilityAddTraits(.isHeader)
+                HStack {
+                    Text("How to scan")
+                        .display(.title)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    Button(action: read) {
+                        Image(systemName: "speaker.wave.2").font(.body.weight(.medium)).frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.archyGhost)
+                    .foregroundStyle(.inkSecondary)
+                    .accessibilityLabel("Read aloud")
+                    .accessibilityIdentifier("scan.tips.read")
+                }
                 PositioningDiagram()
                 VStack(spacing: 0) {
                     ForEach(Array(Self.tips.enumerated()), id: \.offset) { index, tip in
@@ -43,5 +56,11 @@ struct ScanTipsSheet: View {
                 .padding(.bottom, Space.sm)
         }
         .archyScreen()
+        .task { if narration { read() } }
+        .onDisappear { voice.stop() }
+    }
+
+    private func read() {
+        voice.readScript("scan.tips", fallback: "How to scan. " + Self.tips.joined(separator: " "))
     }
 }
