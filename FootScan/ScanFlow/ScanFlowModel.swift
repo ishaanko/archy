@@ -48,7 +48,27 @@ final class ScanFlowModel {
 
     init() {
         Log.flow.notice("App launched. ObjectCaptureSession.isSupported = \(self.isSupported)")
+        #if DEBUG
+        openScanFromLaunchArgument()
+        #endif
     }
+
+    #if DEBUG
+    /// Debug builds only: launching with `-FootScanOpenScan <scan folder name>` opens that saved scan in the
+    /// viewer without scanning. This is how the viewer gets checked in the Simulator.
+    private func openScanFromLaunchArgument() {
+        guard let name = UserDefaults.standard.string(forKey: "FootScanOpenScan") else { return }
+        let folder = ScanFolder(root: ScanFolder.scansRoot.appending(path: name, directoryHint: .isDirectory))
+        do {
+            modelSize = try FootMesh.load(from: folder.modelURL).size
+            self.folder = folder
+            phase = .viewing
+            Log.flow.notice("Opened saved scan \(name, privacy: .public) from launch argument")
+        } catch {
+            Log.flow.error("Couldn't open saved scan \(name, privacy: .public): \(String(describing: error), privacy: .public)")
+        }
+    }
+    #endif
 
     // MARK: - Actions
 

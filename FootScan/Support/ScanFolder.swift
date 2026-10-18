@@ -15,6 +15,8 @@ struct ScanFolder {
     var checkpoint: URL { root.appending(path: "Checkpoint", directoryHint: .isDirectory) }
     var modelURL: URL { root.appending(path: "foot.usdz") }
     var stlURL: URL { root.appending(path: "foot.stl") }
+    /// Zip of `Images/` for sharing; made on first share.
+    var imagesZipURL: URL { root.appending(path: "Images.zip") }
 
     static var scansRoot: URL {
         URL.documentsDirectory.appending(path: "Scans", directoryHint: .isDirectory)
@@ -45,9 +47,9 @@ struct ScanFolder {
         return files.filter { $0.pathExtension.lowercased() == "heic" }.count
     }
 
-    /// Removes `foot.usdz` and `foot.stl` from an earlier attempt so reprocessing starts clean.
+    /// Removes `foot.usdz`, `foot.stl` and `Images.zip` from an earlier attempt so reprocessing starts clean.
     func removeOutputs() {
-        for url in [modelURL, stlURL] where FileManager.default.fileExists(atPath: url.path) {
+        for url in [modelURL, stlURL, imagesZipURL] where FileManager.default.fileExists(atPath: url.path) {
             do {
                 try FileManager.default.removeItem(at: url)
                 Log.files.notice("Removed old \(url.lastPathComponent, privacy: .public)")
