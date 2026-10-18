@@ -88,6 +88,13 @@ export class InsoleScene {
     this.fitCamera()
   }
 
+  /** Camera preset along a fixed direction (`?cam=` deep link): 3/4, straight down, or from the medial side. */
+  setView(view: "3d" | "top" | "side"): void {
+    const dir = view === "top" ? new Vector3(0, -0.001, 1) : view === "side" ? new Vector3(1, 0, 0.02) : new Vector3(163, -301, 285)
+    this.camera.position.copy(this.controls.target).addScaledVector(dir.normalize(), 1)
+    this.fitCamera()
+  }
+
   /** Frames insole plus the posed foot (box in mm, heel/toe lift included) with margin, keeping the current view direction. */
   fitCamera(): void {
     const center = new Vector3(7, 111, 45)
@@ -109,6 +116,7 @@ export class InsoleScene {
       this.mesh.geometry.dispose()
     }
     this.mesh0 = insole
+    this.foot?.seat(insole.heightAt)
     this.grid = grid
     this.sensors = sensors
     this.img = createHeatmapImage(grid)
@@ -177,6 +185,8 @@ export class InsoleScene {
     if (this.foot) this.scene.remove(this.foot.mesh)
     this.foot = next
     next.setTone(this.dark)
+    if (this.mesh0) next.seat(this.mesh0.heightAt)
+    next.pose(this.footPose)
     next.mesh.visible = this.footVisible
     this.scene.add(next.mesh)
     this.fitCamera()
@@ -187,7 +197,9 @@ export class InsoleScene {
     if (this.foot) this.foot.mesh.visible = on
   }
 
+  private footPose: FootPose = { pitch: 0, pivot: 0, lift: 0 }
   setFootPose(p: FootPose): void {
+    this.footPose = p
     this.foot?.pose(p)
   }
 

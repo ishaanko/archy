@@ -149,6 +149,8 @@ function syncTheme(): void {
   const c = bg.replace("#", "")
   const lum = c.length === 6 ? (parseInt(c.slice(0, 2), 16) * 0.299 + parseInt(c.slice(2, 4), 16) * 0.587 + parseInt(c.slice(4, 6), 16) * 0.114) / 255 : 0
   view.setTheme(bg, lum < 0.5)
+  const cam = q.get("cam") // ?cam=top|side
+  if (cam === "top" || cam === "side") view.setView(cam)
   dirty = true
   invalidate()
 }
@@ -231,7 +233,7 @@ function draw(): void {
       vmax = live.scale()
     } else map = diverging ? a.diff : a.peak
     const target = screen !== "watch" || reducedMotion.matches ? FLAT_POSE : poseFromCop(copY(session.device!.sensors.map((s) => s.y), live.latest))
-    pose = { pitch: pose.pitch + (target.pitch - pose.pitch) * 0.35, pivotY: target.pivotY, lift: pose.lift + (target.lift - pose.lift) * 0.35 }
+    pose = { pitch: pose.pitch + (target.pitch - pose.pitch) * 0.35, pivot: target.pivot, lift: pose.lift + (target.lift - pose.lift) * 0.35 }
     renderLive()
   }
   view.setFootPose(pose)
