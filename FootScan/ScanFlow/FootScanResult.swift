@@ -20,20 +20,25 @@ struct FootScanResult {
     let widthCM: Double
     let heightCM: Double
 
-    /// Flat vs. normal arch; nil if the sole couldn't be measured (the model and STL are still fine).
+    /// Flat vs. normal arch; nil if the sole couldn't be measured (see `archFailureReason`).
+    /// The model and STL are fine either way.
     let archType: ArchType?
-    /// How far the inner arch lifts off the floor at mid-foot. Below 10 mm counts as flat.
+    /// Why `archType` is nil, e.g. "There's no foot-sized footprint on the floor."
+    let archFailureReason: String?
+    /// How far the inner arch lifts off the floor at mid-foot, rounded to 0.1 mm.
+    /// Below `FootArchAnalyzer.flatArchHeightMM` counts as flat.
     let archHeightMM: Double?
-    /// Arch Index of the footprint (Cavanagh & Rodgers 1987), for reference: 0.26 or more suggests flat.
+    /// Arch Index of the footprint (Cavanagh & Rodgers 1987). Diagnostic only: on these 3D scans it can
+    /// read as "flat" (≥ 0.26) for a normal foot, so the scanner doesn't show it. Use `archType`.
     let archIndex: Double?
     /// Heel to toe tip and widest part, measured on the sole (more accurate than the bounding box).
     let footLengthCM: Double?
     let footWidthCM: Double?
-    /// The foot wasn't standing flat (sole tilted over 4°: weight back on the heel, sloped floor),
-    /// so `archType` is less certain. The scanner suggests rescanning.
+    /// The foot wasn't standing flat (sole tilted more than `FootArchAnalyzer.unevenSoleTilt` degrees:
+    /// weight back on the heel, sloped floor), so `archType` is less certain. False when it wasn't measured.
     let isSoleUneven: Bool
 
-    init(folder: ScanFolder, size: SIMD3<Float>, arch: FootArchAnalysis?) {
+    init(folder: ScanFolder, size: SIMD3<Float>, arch: FootArchAnalysis?, archError: String?) {
         stlURL = folder.stlURL
         usdzURL = folder.modelURL
         imagesURL = folder.images
@@ -43,6 +48,7 @@ struct FootScanResult {
         widthCM = Double(min(size.x, size.z)) * 100
         heightCM = Double(size.y) * 100
         archType = arch?.archType
+        archFailureReason = arch == nil ? archError : nil
         archHeightMM = arch?.archHeightMM
         archIndex = arch?.archIndex
         footLengthCM = arch?.footLengthCM

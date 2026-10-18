@@ -23,70 +23,94 @@ enum FootArchAnalyzer {
     static let contactHeight: Float = 0.005
     /// The front of the footprint treated as toes and left out, as in the published method.
     static let toeFraction: Float = 0.20
-    /// Arch Index at or above this is flat (published cutoff; reported, not used to classify).
-    static let flatArchIndex = 0.26
-    /// Inner arch lower than this is flat. Set halfway between the first test feet: a known flat foot
-    /// measured 5.9 mm and a normal one 15.9 mm. Refine as more scans come in.
-    static let flatArchHeight: Float = 0.010
+    /// Inner arch lower than this (in mm, as displayed: rounded to 0.1) is flat. From six test scans of four
+    /// feet: known flat feet measured 1.4–5.8 mm, the normal foot 13.6–15.5 mm, and repeat scans of a foot
+    /// agreed within about 2 mm.
+    static let flatArchHeightMM = 10.0
     /// A sole tilted more than this many degrees wasn't standing flat (weight back, sloped floor).
     static let unevenSoleTilt: Float = 4
+    /// A footprint shorter than this isn't a foot (adult feet are about 22–30 cm).
+    static let minimumFootLength: Float = 0.15
 
+    /// Messages give only the cause; the viewer prefixes "Arch not measured:".
     enum Failure: LocalizedError {
-        case noFootprint
+        case noFootprint(lengthCM: Double, tiltDegrees: Double)
+        case noArchProfile
+        case unreadableMesh
 
         var errorDescription: String? {
             switch self {
-            case .noFootprint: "The scan has no footprint on the floor, so the arch can't be measured."
+            case .noFootprint(_, let tilt) where tilt > Double(FootArchAnalyzer.unevenSoleTilt):
+                "There's no foot-sized footprint on the floor (sole tilted \(String(format: "%.1f", tilt))°). Stand with weight on the whole foot."
+            case .noFootprint:
+                "There's no foot-sized footprint on the floor."
+            case .noArchProfile:
+                "The sides of the sole couldn't be traced."
+            case .unreadableMesh:
+                "The model's shape couldn't be read."
             }
         }
     }
 
     static func analyze(_ mesh: FootMesh) throws -> FootArchAnalysis {
+        // FootMesh.load already rejects these; checked again because a damaged mesh must never crash this.
+        guard mesh.isUsable else { throw Failure.unreadableMesh }
         let floorY = mesh.bounds.min.y
         let axes = footAxes(mesh, floorY: floorY)
         var grid = HeightGrid(mesh: mesh, axes: axes, floorY: floorY, cellSize: cellSize)
         let soleTilt = grid.levelToSupportPlane(cellSize: cellSize)
-        let contact = largestRegion(of: grid.lowest.map { $0 < contactHeight }, columns: grid.columns, rows: grid.rows)
+        let contact = footRegions(of: grid.lowest.map { $0 < contactHeight }, columns: grid.columns, rows: grid.rows)
 
         // Footprint extent along the foot: columns with a real strip of contact, not single stray cells.
         let minimumCells = 3
         let contactColumns = (0..<grid.columns).filter { column in
             (0..<grid.rows).count(where: { contact[$0 * grid.columns + column] }) >= minimumCells
         }
-        guard let heel = contactColumns.first, let toeTip = contactColumns.last, toeTip - heel >= 30 else {
-            throw Failure.noFootprint
+        guard let contactHeel = contactColumns.first, let contactToe = contactColumns.last else {
+            throw Failure.noFootprint(lengthCM: 0, tiltDegrees: Double(soleTilt))
         }
+        // The foot runs past its contact patch where the sole lifts (toes, the heel's edge). Grow the span
+        // along the sole's outline so length, the arch measurement and the drawing include them.
+        func outlineCells(_ column: Int) -> Int {
+            (0..<grid.rows).count(where: { grid.lowest[$0 * grid.columns + column] < outlineHeight })
+        }
+        var heel = contactHeel, toeTip = contactToe
+        while heel > 0, outlineCells(heel - 1) >= minimumCells { heel -= 1 }
+        while toeTip < grid.columns - 1, outlineCells(toeTip + 1) >= minimumCells { toeTip += 1 }
         let lengthColumns = toeTip - heel + 1
-        // Thirds of the toe-less footprint, in columns from the heel. They rarely fall on whole columns, so
-        // each column's contact is split between thirds by overlap; whole-column thirds would bias the index.
-        let third = Float(lengthColumns) * (1 - toeFraction) / 3
+        guard lengthColumns >= Int((minimumFootLength / cellSize).rounded()) else {
+            throw Failure.noFootprint(lengthCM: Double(Float(lengthColumns) * cellSize * 100),
+                                      tiltDegrees: Double(soleTilt))
+        }
+
+        // Arch Index over the contact footprint without toes, as in the published method. The thirds rarely
+        // fall on whole columns, so each column's contact is split by overlap; whole-column thirds bias it.
+        let third = Float(contactToe - contactHeel + 1) * (1 - toeFraction) / 3
         var thirds: [Float] = [0, 0, 0]
         var maxWidthCells = 0
         for column in heel...toeTip {
-            let cells = (0..<grid.rows).count(where: { contact[$0 * grid.columns + column] })
             // Width from the sole's outline, not its contact: a rolled foot touches with a narrow strip.
-            let outlineCells = (0..<grid.rows).count(where: { grid.lowest[$0 * grid.columns + column] < outlineHeight })
-            maxWidthCells = max(maxWidthCells, outlineCells)
-            let start = Float(column - heel), end = start + 1
+            maxWidthCells = max(maxWidthCells, outlineCells(column))
+            guard column >= contactHeel, column <= contactToe else { continue }
+            let cells = (0..<grid.rows).count(where: { contact[$0 * grid.columns + column] })
+            let start = Float(column - contactHeel), end = start + 1
             for k in 0..<3 {
                 let overlap = min(end, Float(k + 1) * third) - max(start, Float(k) * third)
                 if overlap > 0 { thirds[k] += Float(cells) * overlap }
             }
         }
         let archIndex = Double(thirds[1] / max(thirds.reduce(0, +), 1))
-        // Rounded positions, for drawing only.
-        let toesStart = heel + Int((3 * third).rounded())
-        let thirdBoundaries = [heel + Int(third.rounded()), heel + Int((2 * third).rounded())]
 
-        let arch = measureArch(grid: grid, heel: heel, toeTip: toeTip)
-        let archType: ArchType = arch.height < flatArchHeight ? .flat : .normal
+        guard let arch = measureArch(grid: grid, heel: heel, toeTip: toeTip) else { throw Failure.noArchProfile }
+        // Classify the value the user sees, so "10.0 mm" can never sit under "flat is under 10 mm".
+        let archHeightMM = (Double(arch.height) * 10_000).rounded() / 10
+        let archType: ArchType = archHeightMM < flatArchHeightMM ? .flat : .normal
         let footprint = Footprint(cellSize: cellSize, columns: grid.columns, rows: grid.rows, contact: contact,
-                                  heights: grid.lowest, heelColumn: heel, toesStartColumn: toesStart,
-                                  toeTipColumn: toeTip, thirdBoundaries: thirdBoundaries,
+                                  heights: grid.lowest, heelColumn: heel, toeTipColumn: toeTip,
                                   innerSideAtHighRows: arch.innerSideAtHighRows,
                                   archPeakColumn: archType == .normal ? arch.peakColumn : nil)
         return FootArchAnalysis(archIndex: archIndex,
-                                archHeightMM: Double(arch.height * 1000),
+                                archHeightMM: archHeightMM,
                                 archType: archType,
                                 footLengthCM: Double(Float(lengthColumns) * cellSize * 100),
                                 footWidthCM: Double(Float(maxWidthCells) * cellSize * 100),
@@ -103,7 +127,7 @@ enum FootArchAnalyzer {
     /// bigger rise at mid-foot is the inner side. Returns that rise in meters, which side it is, and
     /// the column where the arch is highest.
     private static func measureArch(grid: HeightGrid, heel: Int, toeTip: Int)
-        -> (height: Float, innerSideAtHighRows: Bool, peakColumn: Int?) {
+        -> (height: Float, innerSideAtHighRows: Bool, peakColumn: Int?)? {
         var profiles: [[Float]] = [[], []]
         for column in heel...toeTip {
             let rows = (0..<grid.rows).filter { grid.lowest[$0 * grid.columns + column] < outlineHeight }
@@ -122,6 +146,8 @@ enum FootArchAnalyzer {
 
         let length = Float(toeTip - heel + 1)
         var best: (height: Float, innerSideAtHighRows: Bool, peakColumn: Int?) = (0, true, nil)
+        // Without a heel and ball level on at least one side there's no baseline: report that, not "0 mm, flat".
+        var measuredSides = 0
         for (side, raw) in profiles.enumerated() {
             // Smooth with a 5-column (1.5 cm) running median so a single noisy column can't make an arch.
             let profile = raw.indices.map { i in median(raw[max(0, i - 2)...min(raw.count - 1, i + 2)].filter(\.isFinite)) }
@@ -130,6 +156,7 @@ enum FootArchAnalyzer {
             }
             let heelLevel = level(0.05, 0.20), ballLevel = level(0.65, 0.80)
             guard heelLevel.isFinite, ballLevel.isFinite else { continue }
+            measuredSides += 1
             for i in Int(0.25 * length)..<Int(0.60 * length) where profile[i].isFinite {
                 let f = Float(i) / length
                 let baseline = heelLevel + (ballLevel - heelLevel) * (f - 0.125) / (0.725 - 0.125)
@@ -139,7 +166,7 @@ enum FootArchAnalyzer {
                 }
             }
         }
-        return best
+        return measuredSides > 0 ? best : nil
     }
 
     /// Median of the values, or NaN if there are none.
@@ -189,10 +216,12 @@ enum FootArchAnalyzer {
         return Axes(center: center, along: along)
     }
 
-    /// Keeps only the biggest connected patch of contact (the foot), dropping specks such as floor debris.
-    static func largestRegion(of cells: [Bool], columns: Int, rows: Int) -> [Bool] {
+    /// Keeps the foot's contact patches and drops specks such as floor debris. A patch counts if it's at least
+    /// 15% the size of the biggest one: a high arch splits the footprint into heel and forefoot, and keeping
+    /// only the biggest would measure the forefoot alone and call the foot flat.
+    static func footRegions(of cells: [Bool], columns: Int, rows: Int) -> [Bool] {
         var label = [Int](repeating: -1, count: cells.count)
-        var best: [Int] = []
+        var regions: [[Int]] = []
         for start in cells.indices where cells[start] && label[start] < 0 {
             var region = [start]
             label[start] = start
@@ -211,10 +240,13 @@ enum FootArchAnalyzer {
                     }
                 }
             }
-            if region.count > best.count { best = region }
+            regions.append(region)
         }
+        let largest = regions.map(\.count).max() ?? 0
         var result = [Bool](repeating: false, count: cells.count)
-        for i in best { result[i] = true }
+        for region in regions where Double(region.count) >= 0.15 * Double(largest) {
+            for i in region { result[i] = true }
+        }
         return result
     }
 }
@@ -250,16 +282,13 @@ struct Footprint {
     let cellSize: Float
     let columns: Int
     let rows: Int
-    /// Touching the floor (the foot's main contact patch only).
+    /// Touching the floor (the foot's contact patches; floor specks dropped).
     let contact: [Bool]
-    /// Height of the sole's underside above the floor, in meters; infinity where there's no surface.
-    /// The sole's outline is where this is below `FootArchAnalyzer.outlineHeight`.
+    /// Height of the sole's underside above the plane it rests on, in meters; infinity where there's no
+    /// surface. The sole's outline is where this is below `FootArchAnalyzer.outlineHeight`.
     let heights: [Float]
     let heelColumn: Int
-    let toesStartColumn: Int
     let toeTipColumn: Int
-    /// Where the middle third (for the Arch Index) starts and ends.
-    let thirdBoundaries: [Int]
     /// Whether the inner (big-toe, arch) side is at high row numbers.
     let innerSideAtHighRows: Bool
     /// Where along the foot the arch is highest, for labeling it; nil when the foot is classified flat.
