@@ -29,6 +29,9 @@ struct FootScanResult {
     /// Heel to toe tip and widest part, measured on the sole (more accurate than the bounding box).
     let footLengthCM: Double?
     let footWidthCM: Double?
+    /// The foot wasn't standing flat (sole tilted over 4°: weight back on the heel, sloped floor),
+    /// so `archType` is less certain. The scanner suggests rescanning.
+    let isSoleUneven: Bool
 
     init(folder: ScanFolder, size: SIMD3<Float>, arch: FootArchAnalysis?) {
         stlURL = folder.stlURL
@@ -44,5 +47,6 @@ struct FootScanResult {
         archIndex = arch?.archIndex
         footLengthCM = arch?.footLengthCM
         footWidthCM = arch?.footWidthCM
+        isSoleUneven = arch?.isSoleUneven ?? false
     }
 }
