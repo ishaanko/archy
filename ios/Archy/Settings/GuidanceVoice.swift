@@ -105,6 +105,7 @@ struct GuidanceSettingsView: View {
     @AppStorage("accessibility.voiceGuidance") private var automaticNarration = false
     @AppStorage("accessibility.readingFriendly") private var readingFriendly = false
     @AppStorage("accessibility.audioCues") private var audioCues = false
+    @AppStorage(MeasurementUnit.storageKey) private var lengthUnit = MeasurementUnit.localeDefault()
     @AppStorage("voice.grokEnabled") private var grokEnabled = false
     @AppStorage("voice.proxyURL") private var savedURL = ""
     private enum ConnectionField: Hashable { case url, token }
@@ -124,6 +125,10 @@ struct GuidanceSettingsView: View {
                     Toggle("Read steps aloud", isOn: $automaticNarration)
                     Toggle("Reading-friendly type", isOn: $readingFriendly)
                     Toggle("Audio cues", isOn: $audioCues)
+                    Picker("Length units", selection: $lengthUnit) {
+                        ForEach(MeasurementUnit.allCases) { Text($0.symbol).tag($0) }
+                    }
+                    .accessibilityIdentifier("settings.units")
                 }
                 .listRowBackground(Color.surface)
 

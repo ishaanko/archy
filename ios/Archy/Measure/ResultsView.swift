@@ -5,6 +5,7 @@ struct ResultsView: View {
     let assessment: Assessment
     @Environment(AppRouter.self) private var router
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(MeasurementUnit.storageKey) private var unit = MeasurementUnit.localeDefault()
     @State private var leftRisen = false
     @State private var rightRisen = false
 
@@ -27,7 +28,7 @@ struct ResultsView: View {
                 }
                 .reveal(2)
 
-                DisclosureGroup("Raw measurements") {
+                DisclosureGroup("Raw measurements, \(unit.symbol)") {
                     ComparisonGrid(rows: rawRows).padding(.top, Space.sm)
                 }
                 .accessibilityIdentifier("results.raw")
@@ -71,18 +72,18 @@ struct ResultsView: View {
     }
 
     private var comparisonRows: [ComparisonGrid.Row] {
-        let drop = { (mm: Double) in mm.formatted(.number.precision(.fractionLength(1))) }
+        let drop = { (mm: Double) in unit.format(millimeters: mm, fine: true, symbol: false) }
         let ratio = { (value: Double) in value.formatted(.number.precision(.fractionLength(3))) }
         let (l, r) = (assessment.left, assessment.right)
         return [
-            row("Navicular drop, mm", try? MeasurementMath.navicularDrop(l), try? MeasurementMath.navicularDrop(r), format: drop),
+            row("Navicular drop, \(unit.symbol)", try? MeasurementMath.navicularDrop(l), try? MeasurementMath.navicularDrop(r), format: drop),
             row("Width to length", try? MeasurementMath.widthLengthRatio(l), try? MeasurementMath.widthLengthRatio(r), format: ratio),
         ]
     }
 
     private var rawRows: [ComparisonGrid.Row] {
         MeasurementField.allCases.map { field in
-            let format = { (mm: Double) in mm.formatted(.number.precision(.fractionLength(1))) }
+            let format = { (mm: Double) in unit.format(millimeters: mm, fine: true, symbol: false) }
             return ComparisonGrid.Row(title: field.title, left: format(assessment.left[field]), right: format(assessment.right[field]), difference: format(abs(assessment.left[field] - assessment.right[field])))
         }
     }

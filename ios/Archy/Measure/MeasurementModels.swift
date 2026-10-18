@@ -5,11 +5,60 @@ enum FootSide: String, CaseIterable, Codable, Identifiable, Sendable {
     var id: String { rawValue }
     var title: String { self == .left ? "Left" : "Right" }
 }
+/// Display units for lengths. Storage stays in millimeters; units only convert at the edges (typing and display).
 enum MeasurementUnit: String, CaseIterable, Identifiable, Sendable {
-    case millimeters, centimeters
+    case millimeters, centimeters, inches
     var id: String { rawValue }
-    var symbol: String { self == .millimeters ? "mm" : "cm" }
-    func toMillimeters(_ value: Double) -> Double { self == .centimeters ? value * 10 : value }
+    var symbol: String {
+        switch self {
+        case .millimeters: "mm"
+        case .centimeters: "cm"
+        case .inches: "in"
+        }
+    }
+    /// Plural name for VoiceOver and spoken labels ("in" alone reads badly).
+    var spokenName: String {
+        switch self {
+        case .millimeters: "millimeters"
+        case .centimeters: "centimeters"
+        case .inches: "inches"
+        }
+    }
+    private var millimetersPerUnit: Double {
+        switch self {
+        case .millimeters: 1
+        case .centimeters: 10
+        case .inches: 25.4
+        }
+    }
+    func toMillimeters(_ value: Double) -> Double { value * millimetersPerUnit }
+    func fromMillimeters(_ millimeters: Double) -> Double { millimeters / millimetersPerUnit }
+
+    /// Fraction digits that suit a foot-scale length (`fine: false`) or a small reading such as a
+    /// navicular height or an arch lift (`fine: true`).
+    func fractionDigits(fine: Bool) -> Int {
+        switch self {
+        case .millimeters: fine ? 1 : 0
+        case .centimeters: fine ? 2 : 1
+        case .inches: fine ? 2 : 1
+        }
+    }
+
+    /// A stored millimeter length as text in this unit, for example "10.2 in".
+    func format(millimeters: Double, fine: Bool = false, symbol: Bool = true) -> String {
+        let number = fromMillimeters(millimeters).formatted(.number.precision(.fractionLength(fractionDigits(fine: fine))))
+        return symbol ? "\(number) \(self.symbol)" : number
+    }
+}
+
+extension MeasurementUnit {
+    /// The `@AppStorage` key for the app-wide length preference.
+    static let storageKey = "units.length"
+
+    /// Inches where the locale uses US customary units, millimeters elsewhere.
+    static func localeDefault(for locale: Locale = .current) -> MeasurementUnit {
+        locale.measurementSystem == .us ? .inches : .millimeters
+    }
 }
 enum MeasurementField: String, CaseIterable, Identifiable, Sendable {
     case fullLength, truncatedLength, dorsumHeight, width, seatedNavicular, standingNavicular

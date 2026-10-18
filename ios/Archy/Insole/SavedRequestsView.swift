@@ -42,6 +42,7 @@ struct SavedRequestView: View {
     @Environment(InsoleRequestStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let request: InsoleRequest
+    @AppStorage(MeasurementUnit.storageKey) private var unit = MeasurementUnit.localeDefault()
     @State private var confirmingDelete = false
 
     var body: some View {
@@ -55,7 +56,7 @@ struct SavedRequestView: View {
                     InsoleDetailRow(label: "Material", value: request.material)
                     if let support = request.supportPercent { InsoleDetailRow(label: "Arch support", value: "\(support)%") }
                     ForEach(MeasurementField.allCases) { field in
-                        InsoleDetailRow(label: field.title, value: "\(request.measurementsMM[field].formatted(.number.precision(.fractionLength(1)))) mm")
+                        InsoleDetailRow(label: field.title, value: unit.format(millimeters: request.measurementsMM[field], fine: true))
                     }
                     if let scan = request.scan {
                         InsoleDetailRow(label: "Scan", value: "\(scan.filename), \(ByteCountFormatter.string(fromByteCount: Int64(scan.bytes.count), countStyle: .file))")
