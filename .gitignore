@@ -1,0 +1,14 @@
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Local Apple sample (not part of this app)
+reference/
+
+# Local Claude settings
+.claude/settings.local.json
