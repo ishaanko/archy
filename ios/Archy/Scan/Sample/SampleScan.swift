@@ -20,52 +20,21 @@ struct SampleScan {
 
     enum Failure: LocalizedError {
         case missingResource
-        case unreadable
 
         var errorDescription: String? {
             switch self {
             case .missingResource: "The sample scan is missing from the app."
-            case .unreadable: "The sample scan couldn't be read."
             }
         }
     }
 
-    /// Parses the binary STL: 80-byte header, a triangle count, then 50 bytes per triangle.
+    /// Reads the bundled STL, rebuilds smooth normals and measures the arch.
     static func load() throws -> SampleScan {
         guard let url = Bundle.main.url(forResource: "scan-ishaan", withExtension: "stl") else {
             throw Failure.missingResource
         }
-        let data = try Data(contentsOf: url)
-        guard data.count >= 84 else { throw Failure.unreadable }
-        let triangleCount = Int(data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 80, as: UInt32.self) })
-        guard triangleCount > 0, data.count >= 84 + triangleCount * 50 else { throw Failure.unreadable }
-
-        var vertices: [SIMD3<Float>] = []
-        var indices: [UInt32] = []
-        var indexOfVertex: [SIMD3<Float>: UInt32] = [:]
-        indices.reserveCapacity(triangleCount * 3)
-
-        data.withUnsafeBytes { bytes in
-            for t in 0..<triangleCount {
-                // Skip the 12-byte face normal; smooth normals are rebuilt below.
-                let base = 84 + t * 50 + 12
-                for corner in 0..<3 {
-                    let offset = base + corner * 12
-                    // STL is millimeters with Z up; the viewer wants meters with Y up.
-                    let stl = SIMD3(bytes.loadUnaligned(fromByteOffset: offset, as: Float.self),
-                                    bytes.loadUnaligned(fromByteOffset: offset + 4, as: Float.self),
-                                    bytes.loadUnaligned(fromByteOffset: offset + 8, as: Float.self))
-                    if let existing = indexOfVertex[stl] {
-                        indices.append(existing)
-                    } else {
-                        let index = UInt32(vertices.count)
-                        indexOfVertex[stl] = index
-                        vertices.append(SIMD3(stl.x, stl.z, -stl.y) * 0.001)
-                        indices.append(index)
-                    }
-                }
-            }
-        }
+        let mesh = try FootMesh.loadSTL(from: url)
+        let (vertices, indices) = (mesh.vertices, mesh.indices)
 
         var normals = [SIMD3<Float>](repeating: .zero, count: vertices.count)
         for t in stride(from: 0, to: indices.count, by: 3) {
@@ -78,7 +47,6 @@ struct SampleScan {
         }
         normals = normals.map { simd_length($0) > 0 ? simd_normalize($0) : SIMD3(0, 1, 0) }
 
-        let mesh = FootMesh(vertices: vertices, indices: indices)
         return SampleScan(stlURL: url, mesh: mesh, arch: try? FootArchAnalyzer.analyze(mesh), normals: normals)
     }
 

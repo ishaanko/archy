@@ -9,6 +9,8 @@ let package = Package(
     targets: [
         .target(name: "MeasurementCore", path: "Archy", sources: ["Measure/MeasurementModels.swift", "Measure/AssessmentStore.swift", "Insole/PremiumModels.swift", "Train/ExerciseSession.swift"]),
         .target(name: "OnboardingCore", path: "Archy/Onboarding", sources: ["OnboardingModels.swift", "OnboardingStore.swift"]),
+        .target(name: "ScanCore", path: "Archy/Scan", sources: ["Support/FootMesh.swift", "Support/Log.swift", "Analysis/FootArchAnalyzer.swift"]),
+        .testTarget(name: "ScanCoreTests", dependencies: ["ScanCore"], path: "Tests/ScanTests", resources: [.copy("Fixtures")]),
         .testTarget(name: "MeasurementCoreTests", dependencies: ["MeasurementCore"], path: "Tests/MeasureTests"),
         .testTarget(name: "OnboardingCoreTests", dependencies: ["OnboardingCore"], path: "Tests/OnboardingTests")
     ]

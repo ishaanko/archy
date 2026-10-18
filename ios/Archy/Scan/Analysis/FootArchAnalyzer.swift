@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import os
 import simd
 
 /// Flat vs. normal arch from the reconstructed mesh of a standing foot.
@@ -39,7 +40,8 @@ enum FootArchAnalyzer {
         }
     }
 
-    static func analyze(_ mesh: FootMesh) throws -> FootArchAnalysis {
+    static func analyze(_ scan: FootMesh) throws -> FootArchAnalysis {
+        let mesh = leveled(scan)
         let floorY = mesh.bounds.min.y
         let axes = footAxes(mesh, floorY: floorY)
         let grid = HeightGrid(mesh: mesh, axes: axes, floorY: floorY, cellSize: cellSize)
@@ -145,6 +147,62 @@ enum FootArchAnalyzer {
     }
 
     // MARK: - Steps
+
+    /// Tilt below this is left alone: the heel-to-ball baseline already absorbs it, and `flatArchHeight` was set
+    /// on scans with floors tilted 1.3° to 3.3°. Pranav's flat left foot came out at 7.5° and only measured once leveled.
+    static let levelingThreshold: Float = 4 * .pi / 180
+    /// Tilt above this means the floor fit went wrong; the scan is measured as it is.
+    static let levelingLimit: Float = 20 * .pi / 180
+
+    /// Rotates the mesh so the floor it stands on is level. Object Capture's up axis can be a few degrees
+    /// off (one scan sat 3 cm higher at the heel than the toes), and the footprint is read as everything
+    /// near the lowest point, so a tilt leaves only one end of the sole "on the floor".
+    ///
+    /// The floor is the lower envelope of the sole: the lowest point in each 1 cm column, fitted with a plane,
+    /// keeping the lower half of the points for a few rounds so the arch and the side walls drop out.
+    static func leveled(_ mesh: FootMesh) -> FootMesh {
+        guard let up = floorNormal(mesh) else { return mesh }
+        let tilt = acos(min(1, up.y))
+        guard tilt > levelingThreshold, tilt < levelingLimit else { return mesh }
+        let rotation = simd_quatf(from: up, to: SIMD3(0, 1, 0))
+        Log.analysis.notice("Leveled a \(tilt * 180 / .pi, format: .fixed(precision: 1))° floor tilt before measuring")
+        return FootMesh(vertices: mesh.vertices.map { rotation.act($0) }, indices: mesh.indices)
+    }
+
+    /// Unit normal of the floor under the sole, from its lower envelope; nil if there's too little to fit.
+    static func floorNormal(_ mesh: FootMesh) -> SIMD3<Float>? {
+        let cell: Float = 0.01
+        var lowest: [SIMD2<Int>: SIMD3<Float>] = [:]
+        for p in mesh.vertices {
+            let key = SIMD2(Int((p.x / cell).rounded(.down)), Int((p.z / cell).rounded(.down)))
+            if let current = lowest[key], current.y <= p.y { continue }
+            lowest[key] = p
+        }
+        var points = Array(lowest.values)
+        guard var plane = fitPlane(points) else { return nil } // y = a·x + b·z + c
+        for _ in 0..<3 {
+            guard points.count >= 24, let fit = fitPlane(points) else { break }
+            plane = fit
+            let residuals = points.map { $0.y - (plane.x * $0.x + plane.y * $0.z + plane.z) }
+            let cutoff = residuals.sorted()[residuals.count / 2]
+            points = zip(points, residuals).filter { $0.1 <= cutoff }.map(\.0)
+        }
+        return simd_normalize(SIMD3<Float>(-plane.x, 1, -plane.y))
+    }
+
+    /// Least-squares plane y = a·x + b·z + c through the points, as (a, b, c); nil if they're degenerate.
+    private static func fitPlane(_ points: [SIMD3<Float>]) -> SIMD3<Float>? {
+        var m = simd_double3x3(0)
+        var v = SIMD3<Double>.zero
+        for p in points {
+            let row = SIMD3<Double>(Double(p.x), Double(p.z), 1)
+            m += simd_double3x3(columns: (row * row.x, row * row.y, row * row.z))
+            v += row * Double(p.y)
+        }
+        guard abs(m.determinant) > 1e-12 else { return nil }
+        let solution = m.inverse * v
+        return SIMD3<Float>(Float(solution.x), Float(solution.y), Float(solution.z))
+    }
 
     /// Horizontal directions along (heel → toe) and across the foot, plus the center they're measured from.
     struct Axes {
