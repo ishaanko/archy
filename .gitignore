@@ -23,3 +23,8 @@ reference/
 .claude/
 .cursor/
 CLAUDE.md
+
+# Vercel and secrets
+.vercel/
+.env
+.env.*
