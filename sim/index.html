@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Insole pressure simulation</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <canvas id="view" tabindex="0" aria-label="3D insole view. Arrow keys rotate, plus and minus zoom, drag to orbit, scroll to zoom."></canvas>
+      <aside aria-label="Controls and results">
+        <h1>Sensor to heatmap to insole</h1>
+        <section aria-label="Source">
+          <label>Source <select id="source" aria-label="Pressure data source"></select></label>
+          <p id="source-note"></p>
+        </section>
+        <section aria-label="Playback">
+          <div class="row">
+            <button id="play" type="button" aria-label="Play or pause the stance">Play</button>
+            <label>Speed <select id="speed" aria-label="Playback speed">
+              <option value="0.1">0.1x</option><option value="0.25" selected>0.25x</option><option value="0.5">0.5x</option><option value="1">1x</option>
+            </select></label>
+            <output id="time" aria-live="off"></output>
+          </div>
+          <input id="scrub" type="range" min="0" max="1" step="1" value="0" aria-label="Scrub through the stance phase" />
+        </section>
+        <section aria-label="Display">
+          <div class="row">
+            <label>Map <select id="mapmode" aria-label="Show frame or peak pressure"><option value="frame">frame</option><option value="peak">peak</option><option value="diff">vs healthy (MUN104)</option></select></label>
+            <label>Surface <select id="surface" aria-label="Flat or pressure terrain"><option value="flat">flat</option><option value="terrain">terrain</option></select></label>
+            <label>Colors <select id="cmap" aria-label="Color map"><option value="viridis">viridis</option><option value="cividis">cividis</option></select></label>
+          </div>
+          <div class="row">
+            <label><input id="patterns" type="checkbox" /> Patterns</label>
+            <label><input id="sensors" type="checkbox" checked /> Sensors</label>
+            <label><input id="cop" type="checkbox" checked /> CoP</label>
+          </div>
+          <div id="legend" role="img" aria-label="Pressure scale"><div id="legend-bar"></div><div class="row between"><span id="legend-lo">0</span><span id="legend-max"></span></div></div>
+          <output id="live"></output>
+        </section>
+        <section aria-label="Arch indices">
+          <table id="indices"></table>
+          <p id="votes"></p>
+          <p id="verdict"></p>
+        </section>
+        <section aria-label="Insole">
+          <p id="insole-info"></p>
+          <button id="download" type="button" aria-label="Download insole as binary STL">Download STL</button>
+        </section>
+        <footer>Runs in your browser. Nothing is uploaded.</footer>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
