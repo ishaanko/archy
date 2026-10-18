@@ -37,10 +37,6 @@ struct CaptureControls: View {
             }
         }
         .padding()
-        .onAppear { model.showTipsIfFirstScan() }
-        .sheet(isPresented: Binding(get: { model.isShowingTips }, set: { model.setShowingTips($0) })) {
-            ScanTipsSheet { model.setShowingTips(false) }
-        }
     }
 
     // MARK: - Pieces

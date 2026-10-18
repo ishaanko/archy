@@ -45,6 +45,10 @@ struct ScanRootView: View {
             UIApplication.shared.isIdleTimerDisabled = true
             model.startSession()
         }
+        // Here rather than on the capture screen: on first launch it shows before the camera exists.
+        .sheet(isPresented: Binding(get: { model.isShowingTips }, set: { model.setShowingTips($0) })) {
+            ScanTipsSheet { model.setShowingTips(false) }
+        }
         .onChange(of: scenePhase) { _, newPhase in
             // iOS may suspend processing in the background; this shows up in the logs if it happens.
             Log.flow.notice("App scene phase \(String(describing: newPhase), privacy: .public) during \(String(describing: model.phase), privacy: .public)")
