@@ -43,7 +43,8 @@ export interface ScanResult {
   footprint: Indices | null
   /** Insole outline: the foot silhouette near the floor, smoothed and offset outward, counter-clockwise. */
   outline: Point[]
-  /** Heel/toe call: z-spread of the two ends (confidence). Side call: medial minus lateral edge height, mm. */
+  /** Heel/toe call: z-spread of the two ends (confidence). Side call: toe-tip lean toward the medial side, mm (or the
+   *  medial minus lateral edge height when the toes are too centered to call). */
   checks: { heelToeRatio: number; sideMargin: number; ballWiderThanHeel: boolean }
 }
 
@@ -314,8 +315,15 @@ function orient(v: Float64Array, up: V3): Oriented {
   const L = s1 - s0
   for (let i = 0; i < n; i++) s[i] -= s0
 
-  // Medial side: the arch edge rises off the floor, the lateral edge stays down. Compare the lowest vertex
-  // within 8 mm of each outer edge, per 2 mm row through the midfoot (35-60% of the length).
+  // Medial side, first call: the toe tips lean toward the big toe, which is medial. On 38 dataset scans this leaned 9-28 mm
+  // the right way; it also holds for standing phone scans, whose hole-filled sole hides the arch edge used below.
+  const mid = extent((i) => Math.abs(s[i] - 0.5 * L) < 20 && z[i] < FOOT_Z, t)
+  let tip = 0, k = 0
+  for (let i = 0; i < n; i++) if (s[i] > 0.94 * L && z[i] < FOOT_Z) (tip += t[i], k++)
+  const toeLean = k ? tip / k - (mid[0] + mid[1]) / 2 : 0
+
+  // Fallback when the toes are centered: the arch edge rises off the floor, the lateral edge stays down. Compare the lowest
+  // vertex within 8 mm of each outer edge, per 2 mm row through the midfoot (35-60% of the length).
   const rows = new Map<number, number[]>()
   for (let i = 0; i < n; i++) {
     const r = Math.floor(s[i] / 2)
@@ -332,14 +340,8 @@ function orient(v: Float64Array, up: V3): Oriented {
     }
     edgeP.push(hp); edgeN.push(hn)
   }
-  let sideMargin = median(edgeP) - median(edgeN) // > 0: the +t side is raised, i.e. medial
-  if (Math.abs(sideMargin) < 2) {
-    // Too close to call from the arch: the toe tips lean toward the big toe, which is medial.
-    const mid = extent((i) => Math.abs(s[i] - 0.5 * L) < 20 && z[i] < FOOT_Z, t)
-    let tip = 0, k = 0
-    for (let i = 0; i < n; i++) if (s[i] > 0.94 * L && z[i] < FOOT_Z) (tip += t[i], k++)
-    sideMargin = k ? tip / k - (mid[0] + mid[1]) / 2 : sideMargin
-  }
+  // > 0: the +t side is medial
+  const sideMargin = Math.abs(toeLean) >= 3 ? toeLean : median(edgeP) - median(edgeN)
   const medialPositive = sideMargin > 0
   const x = new Float64Array(n)
   // In a right-handed (x, y, z) frame x = y x z = t, so a left foot (medial on +x) keeps t; a right foot is mirrored.
