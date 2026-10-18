@@ -23,7 +23,7 @@ function hexToRgb(hex: string): RGB {
 /** Colormap color at t in [0, 1] (linear interpolation between perceptual-uniform stops). */
 export function colormapAt(name: ColormapName, t: number): RGB {
   const stops = PALETTES[name]
-  const f = Math.min(1, Math.max(0, t)) * (stops.length - 1)
+  const f = (Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0) * (stops.length - 1)
   const i = Math.min(stops.length - 2, Math.floor(f)), u = f - i
   const a = stops[i], b = stops[i + 1]
   return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]

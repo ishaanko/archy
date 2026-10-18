@@ -80,6 +80,8 @@ export class InsoleScene {
   /** Resizes the drawing buffer to the canvas' CSS size. */
   resize(): void {
     const c = this.renderer.domElement
+    // Hidden canvases report 0x0; fitting the camera then would push it to infinity for good.
+    if (!c.clientWidth || !c.clientHeight) return
     this.renderer.setSize(c.clientWidth, c.clientHeight, false)
     this.camera.aspect = c.clientWidth / Math.max(1, c.clientHeight)
     this.camera.updateProjectionMatrix()
@@ -94,6 +96,7 @@ export class InsoleScene {
     const hHalf = Math.atan(Math.tan(vHalf) * this.camera.aspect)
     const dist = (radius * 0.95) / Math.sin(Math.min(vHalf, hHalf))
     const dir = this.camera.position.clone().sub(this.controls.target).normalize()
+    if (!Number.isFinite(dir.x + dir.y + dir.z) || dir.lengthSq() === 0) dir.set(163, -301, 285).normalize() // initial camera position minus center
     this.controls.target.copy(center)
     this.camera.position.copy(center).addScaledVector(dir, dist)
     this.controls.update()
