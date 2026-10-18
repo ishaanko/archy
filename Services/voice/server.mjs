@@ -40,10 +40,10 @@ const tokenMatches = (header, token) => {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 };
 
-export function createServer({ apiKey = '', proxyToken = '', fetchImpl = fetch, timeoutMs = 15000 } = {}) {
+export function createHandler({ apiKey = '', proxyToken = '', fetchImpl = fetch, timeoutMs = 15000 } = {}) {
   if (apiKey && proxyToken.length < 24) throw new Error('ARCHY_PROXY_TOKEN must contain at least 24 characters when XAI_API_KEY is configured.');
   const configured = Boolean(apiKey && proxyToken.length >= 24);
-  const server = http.createServer(async (req, res) => {
+  return async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') return json(res, 200, { configured });
     if (req.method !== 'POST' || req.url !== '/narrate') return json(res, 404, { error: 'Not found' });
     if (!proxyToken || !tokenMatches(req.headers.authorization, proxyToken)) return json(res, 401, { error: 'Unauthorized' });
@@ -92,7 +92,11 @@ export function createServer({ apiKey = '', proxyToken = '', fetchImpl = fetch, 
       res.end(Buffer.concat(chunks));
     } catch { if (!res.destroyed) json(res, 502, { error: 'Narration service unavailable' }); }
     finally { clearTimeout(timer); res.off('close', onClose); }
-  });
+  };
+}
+
+export function createServer(config = {}) {
+  const server = http.createServer(createHandler(config));
   server.requestTimeout = 10000;
   server.headersTimeout = 10000;
   return server;
