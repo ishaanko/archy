@@ -1,13 +1,12 @@
 //
 //  ScanPhase.swift
-//  FootScan
+//  archy
 //
 
 /// The one state machine that drives the UI:
 /// `ready → detecting → capturing → finishing → reconstructing → viewing`, plus `failed`.
 enum ScanPhase: Equatable {
-    /// Ready to scan: the user points the dot at the foot. On the first scan of a launch the tips sheet
-    /// shows first and the camera isn't running yet; otherwise it's starting or live.
+    /// Idle (no session: the intro screen), or the camera is starting or live and the user points the dot at the foot.
     case ready
     /// Bounding box is shown; the user trims it at the ankle.
     case detecting

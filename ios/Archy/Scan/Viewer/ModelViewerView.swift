@@ -1,115 +1,169 @@
-//
-//  ModelViewerView.swift
-//  FootScan
-//
-
 import RealityKit
 import SwiftUI
 import os
 
-/// The finished scan: an interactive 3D view of `foot.usdz`, its size, and sharing.
+/// What the viewer shows: a finished scan on disk, or the bundled sample.
+enum ViewerSource {
+    case scan(ScanFolder, size: SIMD3<Float>?)
+    case sample(SampleScan)
+
+    /// The model as an entity in meters: the reconstructed USDZ, or the sample's mesh.
+    func loadEntity() async throws -> Entity {
+        switch self {
+        case .scan(let folder, _): try await Entity(contentsOf: folder.modelURL)
+        case .sample(let sample): try sample.makeEntity()
+        }
+    }
+
+    /// Bounding box in meters, Y up.
+    var size: SIMD3<Float>? {
+        switch self {
+        case .scan(_, let size): size
+        case .sample(let sample): sample.size
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .scan: "Your foot"
+        case .sample: "Sample scan"
+        }
+    }
+
+    var closeTitle: String {
+        switch self {
+        case .scan: "New scan"
+        case .sample: "Back"
+        }
+    }
+
+    /// Where the files ended up, for real scans only.
+    var filesNote: String? {
+        switch self {
+        case .scan(let folder, _): "Also in Files › archy › Scans › \(folder.root.lastPathComponent)"
+        case .sample: nil
+        }
+    }
+
+    var isRealScan: Bool {
+        if case .scan = self { true } else { false }
+    }
+}
+
+/// The finished scan: an interactive 3D view, its three dimensions, and sharing.
 @MainActor
 struct ModelViewerView: View {
-    @Environment(ScanFlowModel.self) private var model
-    let folder: ScanFolder
+    let source: ViewerSource
+    let onClose: () -> Void
 
     @State private var loadError: String?
     @State private var shareItems: [URL] = []
     @State private var isPreparingShare = false
     @State private var isShowingShareSheet = false
+    /// Flips once after the screen settles: the numbers roll up and a real scan gets its success haptic.
+    @State private var revealed = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 4) {
-                Text("Your Foot Scan")
-                    .font(.title2.bold())
-                if let size = model.modelSize {
-                    // Y is up. Object Capture doesn't line the foot up with x or z consistently,
-                    // so the longer horizontal side is the length.
-                    let length = max(size.x, size.z) * 100
-                    let width = min(size.x, size.z) * 100
-                    let height = size.y * 100
-                    Text("\(length, format: .number.precision(.fractionLength(1))) cm long · \(width, format: .number.precision(.fractionLength(1))) cm wide · \(height, format: .number.precision(.fractionLength(1))) cm tall")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: Space.lg) {
+            Text(source.title)
+                .display(.title)
+                .accessibilityAddTraits(.isHeader)
+                .reveal(0)
+
+            stage
+                .reveal(1)
+
+            if let size = source.size {
+                dimensions(for: size)
             }
 
-            ZStack {
-                RealityView { content in
-                    content.camera = .virtual
-                    do {
-                        let foot = try await Entity(contentsOf: folder.modelURL)
-                        // Display only: shift the model so its center sits at the origin, where the camera orbits.
-                        // The file on disk keeps its real-world meter coordinates.
-                        let bounds = foot.visualBounds(relativeTo: nil)
-                        foot.position -= bounds.center
-                        let pivot = Entity()
-                        pivot.addChild(foot)
-                        content.add(pivot)
-                        content.cameraTarget = pivot
-                        Log.viewer.notice("Showing \(folder.modelURL.lastPathComponent, privacy: .public), visual extents \(String(describing: bounds.extents), privacy: .public) m")
-                    } catch {
-                        Log.viewer.error("Couldn't load \(folder.modelURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
-                        loadError = error.localizedDescription
-                    }
-                }
-                .realityViewCameraControls(.orbit)
-
-                if let loadError {
-                    ContentUnavailableView("Couldn't Show the Model", systemImage: "cube.transparent",
-                                           description: Text(loadError))
-                }
+            HStack(spacing: Space.md) {
+                Button(isPreparingShare ? "Preparing" : "Share") { isShowingShareSheet = true }
+                    .buttonStyle(.archyPrimary)
+                    .disabled(shareItems.isEmpty)
+                    .accessibilityIdentifier("scan.share")
+                Button(source.closeTitle, action: onClose)
+                    .buttonStyle(.archySecondary)
+                    .accessibilityIdentifier("scan.new")
             }
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .reveal(5)
 
-            Text("Drag to rotate · pinch to zoom")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 12) {
-                Button {
-                    isShowingShareSheet = true
-                } label: {
-                    if isPreparingShare {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                            Text("Preparing…")
-                        }
-                        .frame(maxWidth: .infinity)
-                    } else {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(shareItems.isEmpty)
-
-                Button {
-                    model.startOver()
-                } label: {
-                    Label("New Scan", systemImage: "camera.viewfinder")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
+            if let note = source.filesNote {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(.inkTertiary)
+                    .reveal(5)
             }
-            .controlSize(.large)
-
-            Text("Also in Files › FootScan › Scans › \(folder.root.lastPathComponent)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
-        .padding()
+        .padding(.horizontal, Space.page)
+        .padding(.top, Space.lg)
+        .padding(.bottom, Space.sm)
+        .sensoryFeedback(.success, trigger: revealed) { _, shown in shown && source.isRealScan }
         .task { await prepareShareItems() }
+        .task {
+            try? await Task.sleep(for: .milliseconds(450))
+            revealed = true
+        }
         .sheet(isPresented: $isShowingShareSheet) {
             ShareSheet(items: shareItems) { isShowingShareSheet = false }
                 .presentationDetents([.medium, .large])
         }
     }
 
+    private var stage: some View {
+        ZStack {
+            FootStage(source: source) { loadError = $0 }
+            if let loadError {
+                Text(loadError)
+                    .font(.subheadline)
+                    .foregroundStyle(.inkSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(Space.xl)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous).strokeBorder(Color.line2))
+        .accessibilityLabel("3D model of your foot. Drag to rotate, pinch to zoom.")
+    }
+
+    /// Length, width and height in cm. Y is up. Object Capture doesn't line the foot up with x or z
+    /// consistently, so the longer horizontal side is the length.
+    private func dimensions(for size: SIMD3<Float>) -> some View {
+        let values: [(label: String, cm: Double)] = [
+            ("Length", Double(max(size.x, size.z)) * 100),
+            ("Width", Double(min(size.x, size.z)) * 100),
+            ("Height", Double(size.y) * 100),
+        ]
+        return HStack(alignment: .top, spacing: Space.lg) {
+            ForEach(Array(values.enumerated()), id: \.offset) { index, item in
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
+                        MetricText(value: revealed ? item.cm : 0, fractionDigits: 1, style: .title)
+                        Text("cm")
+                            .font(.footnote)
+                            .foregroundStyle(.inkTertiary)
+                    }
+                    Text(item.label)
+                        .font(.footnote)
+                        .foregroundStyle(.inkSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .reveal(2 + index)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(item.label) \(item.cm.formatted(.number.precision(.fractionLength(1)))) centimeters")
+            }
+        }
+    }
+
     /// Zips the photos (once per scan) so the share sheet can AirDrop STL, USDZ and photos together.
+    /// The sample only offers its STL.
     private func prepareShareItems() async {
+        guard case .scan(let folder, _) = source else {
+            if case .sample(let sample) = source { shareItems = [sample.stlURL] }
+            return
+        }
         let models = [folder.stlURL, folder.modelURL].filter { FileManager.default.fileExists(atPath: $0.path) }
         let images = folder.images
         let zipURL = folder.imagesZipURL
@@ -132,5 +186,38 @@ struct ModelViewerView: View {
         let zip = FileManager.default.fileExists(atPath: zipURL.path) ? [zipURL] : []
         shareItems = models + zip
         Log.viewer.notice("Share ready: \(shareItems.map(\.lastPathComponent).joined(separator: ", "), privacy: .public)")
+    }
+}
+
+/// The orbitable 3D model. Loads the USDZ, centers it on the camera's pivot and reports a load failure.
+@MainActor
+private struct FootStage: View {
+    let source: ViewerSource
+    let onError: (String) -> Void
+
+    var body: some View {
+        RealityView { content in
+            content.camera = .virtual
+            do {
+                let foot = try await source.loadEntity()
+                // Display only: shift the model so its center sits at the origin, where the camera orbits.
+                // The file on disk keeps its real-world meter coordinates.
+                let bounds = foot.visualBounds(relativeTo: nil)
+                foot.position -= bounds.center
+                let pivot = Entity()
+                pivot.addChild(foot)
+                // Also display only: lay the long side across the screen, then tilt the toes toward the camera.
+                let yaw = bounds.extents.z > bounds.extents.x
+                    ? simd_quatf(angle: .pi / 2, axis: [0, 1, 0]) : simd_quatf(angle: 0, axis: [0, 1, 0])
+                pivot.orientation = simd_quatf(angle: 0.35, axis: [1, 0, 0]) * yaw
+                content.add(pivot)
+                content.cameraTarget = pivot
+                Log.viewer.notice("Showing \(source.title, privacy: .public), visual extents \(String(describing: bounds.extents), privacy: .public) m")
+            } catch {
+                Log.viewer.error("Couldn't load \(source.title, privacy: .public): \(String(describing: error), privacy: .public)")
+                onError("Couldn't show the model.")
+            }
+        }
+        .realityViewCameraControls(.orbit)
     }
 }

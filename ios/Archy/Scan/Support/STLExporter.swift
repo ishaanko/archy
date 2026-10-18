@@ -1,6 +1,6 @@
 //
 //  STLExporter.swift
-//  FootScan
+//  archy
 //
 
 import Foundation
@@ -13,7 +13,7 @@ enum STLExporter {
         var data = Data(capacity: 84 + mesh.triangleCount * 50)
 
         // 80-byte header. It must not start with "solid", or readers treat the file as ASCII STL.
-        var header = Data("FootScan binary STL, millimeters, Z up".utf8)
+        var header = Data("archy binary STL, millimeters, Z up".utf8)
         header.count = 80
         data.append(header)
         data.appendLittleEndian(UInt32(mesh.triangleCount))
