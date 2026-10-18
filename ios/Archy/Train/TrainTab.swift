@@ -1,36 +1,116 @@
 import SwiftUI
 
+enum TrainRoute: Hashable {
+    case shortFoot, balance
+    #if DEBUG
+    case shortFootHold, balanceHold, done
+    #endif
+}
+
 /// Train tab entry point. Owns its NavigationStack.
+/// Debug routes: train.library, train.shortfoot, train.shortfoot.hold, train.balance, train.balance.hold, train.done.
 struct TrainTab: View {
-    var body: some View { NavigationStack { ExerciseLibraryView() } }
+    @Environment(AppRouter.self) private var router
+    @State private var path: [TrainRoute] = []
+    @State private var openedDebugRoute = false
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            ExerciseLibraryView()
+                .navigationDestination(for: TrainRoute.self) { route in
+                    switch route {
+                    case .shortFoot: ExerciseCoachView()
+                    case .balance: BalanceCoachView()
+                    #if DEBUG
+                    case .shortFootHold: ExerciseCoachView(debugElapsed: 21)
+                    case .balanceHold: BalanceCoachView(debugElapsed: 8)
+                    case .done:
+                        CoachCompletion(fact: CoachProgram.shortFoot.finishedFact) { path.removeAll() }
+                            .archyScreen()
+                            .toolbar(.hidden, for: .navigationBar)
+                            .toolbar(.hidden, for: .tabBar)
+                    #endif
+                    }
+                }
+        }
+        #if DEBUG
+        .onAppear {
+            guard !openedDebugRoute else { return }
+            openedDebugRoute = true
+            switch router.debugRoute {
+            case "train.shortfoot": path = [.shortFoot]
+            case "train.shortfoot.hold": path = [.shortFootHold]
+            case "train.balance": path = [.balance]
+            case "train.balance.hold": path = [.balanceHold]
+            case "train.done": path = [.done]
+            default: break
+            }
+        }
+        #endif
+    }
 }
 
 struct ExerciseLibraryView: View {
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Eyebrow(text: "Movement studio / Evidence-informed")
-                Text("Meet your\nnext small step.").font(.largeTitle.weight(.medium)).tracking(-1)
-                Text("Choose a lesson. Follow along at your pace.").foregroundStyle(Color.archySecondary)
-                NavigationLink { ExerciseCoachView() } label: {
-                    Panel {
-                        Label("01 / Short-foot practice", systemImage: "shoeprints.fill").font(.title3.weight(.medium))
-                        Text("Seated · 5 gentle repetitions").font(.caption.monospaced()).foregroundStyle(Color.archyAccent)
-                        FootArchShape(height: 0.5).fill(Color.archyAccent.opacity(0.18)).overlay(FootArchShape(height: 0.5).stroke(Color.archyAccent, lineWidth: 2)).frame(height: 100).accessibilityHidden(true)
-                        Text("Learn a subtle arch lift while keeping your heel and toes relaxed.").foregroundStyle(Color.archySecondary)
-                        Label("Learn the movement", systemImage: "arrow.right")
+            VStack(alignment: .leading, spacing: Space.xl) {
+                Text("Train").display(.hero).reveal(0)
+                NavigationLink(value: TrainRoute.shortFoot) {
+                    ExerciseCard(title: "Short foot", fact: "Seated · 5 reps · 1 min") { lift in
+                        CoachFootDiagram(lift: lift)
                     }
-                }.buttonStyle(.plain).accessibilityIdentifier("studio.shortFoot")
-                NavigationLink { BalanceCoachView() } label: {
-                    Panel {
-                        Label("02 / Supported balance", systemImage: "figure.stand").font(.title3.weight(.medium))
-                        Text("Standing · 2 supported holds").font(.caption.monospaced()).foregroundStyle(Color.archyAccent)
-                        Text("Heel-to-toe balance with counter support. Prefer sitting? Try short-foot practice.").foregroundStyle(Color.archySecondary)
-                        Label("Start balance practice", systemImage: "arrow.right")
+                }
+                .buttonStyle(.archyPressable)
+                .accessibilityIdentifier("studio.shortFoot")
+                .reveal(1)
+                NavigationLink(value: TrainRoute.balance) {
+                    ExerciseCard(title: "Tandem balance", fact: "Standing · 2 holds · 1 min") { stance in
+                        BalanceStanceDiagram(tandem: stance > 0.5, leftLeads: true, holding: false)
                     }
-                }.buttonStyle(.plain).accessibilityIdentifier("studio.balance")
-                Text("Introductory lessons, not a personalized treatment plan. Research is included in each lesson.").font(.footnote).foregroundStyle(Color.archySecondary)
-            }.padding(24).frame(maxWidth: 640).frame(maxWidth: .infinity)
-        }.background(Color.archyBackground).navigationTitle("Movement studio").navigationBarTitleDisplayMode(.inline)
+                }
+                .buttonStyle(.archyPressable)
+                .accessibilityIdentifier("studio.balance")
+                .reveal(2)
+            }
+            .padding(.horizontal, Space.page)
+            .padding(.top, Space.lg)
+            .padding(.bottom, Space.xxl)
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
+        }
+        .archyScreen()
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// A library card: a small diagram that plays the movement once when it appears, then the name and one fact.
+private struct ExerciseCard<Visual: View>: View {
+    let title: String
+    let fact: String
+    @ViewBuilder let visual: (Double) -> Visual
+    @State private var played = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.lg) {
+            Color.clear
+                .frame(height: 124)
+                .overlay {
+                    // Runs 0 -> 1 -> 0 once when `played` flips, then rests.
+                    Color.clear.phaseAnimator([0.0, 1.0], trigger: played) { _, amount in
+                        visual(amount).frame(height: 124)
+                    } animation: { _ in Motion.smooth }
+                }
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text(title).display(.headline)
+                Text(fact).font(.subheadline).foregroundStyle(.inkSecondary)
+            }
+        }
+        .surface()
+        .task {
+            guard !reduceMotion else { return }
+            try? await Task.sleep(for: .milliseconds(500))
+            played = true
+        }
     }
 }
