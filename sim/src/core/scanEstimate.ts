@@ -20,6 +20,8 @@ export interface ScanEstimate {
   before: PressureWalk
   withInsole: PressureWalk
   mesh: InsoleMesh
+  /** A plain flat insole of the same outline: what the foot stands on in the "before" view. */
+  flatMesh: InsoleMesh
   /** How much the estimated peak pressure drops with the insole, percent. */
   peakDropPercent: number
   /** The 6-sensor kit's spots (hardware/layout.ts order and names) moved onto this foot's outline. */
@@ -137,6 +139,7 @@ export function estimateScan(scan: ScanResult, template: Template, weightKg: num
   const before = walk(grid, spots, maps, nFrames)
 
   const mesh = buildInsole(outline, grid, before.peak, null, "left", SCAN_INSOLE, layout)
+  const flatMesh = buildInsole(outline, grid, before.peak, null, "left", { ...DEFAULT_INSOLE, heelCupHeight: 0, reliefDepth: 0 }, { ...layout, archHeight: 0 })
   const k = Math.min(0.3, 0.025 * mesh.archHeight)
   let archSum = 0
   for (const c of cells) archSum += archMask[c]
@@ -160,7 +163,7 @@ export function estimateScan(scan: ScanResult, template: Template, weightKg: num
   const withInsole = walk(grid, spots, out, nFrames)
   const max = (a: Float32Array) => a.reduce((m, v) => Math.max(m, v), 0)
   return {
-    grid, cells, fs: FS, nFrames, reference, before, withInsole, mesh,
+    grid, cells, fs: FS, nFrames, reference, before, withInsole, mesh, flatMesh,
     peakDropPercent: Math.max(0, Math.round(100 * (1 - max(withInsole.peak) / max(before.peak)))),
     spots,
   }

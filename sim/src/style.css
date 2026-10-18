@@ -80,6 +80,9 @@ input[type="number"] { font: inherit; width: 5rem; min-height: 2.25rem; padding:
 #est-box { margin-top: 1.25rem; }
 #est-text { margin-top: .5rem; color: var(--text-sec); font-size: .9375rem; }
 #sole-note { margin-top: .75rem; color: var(--text-sec); font-size: .9375rem; }
+.more { margin-top: 1.75rem; }
+.more > .tiles { margin: .5rem 0 0; }
+a.btn { text-decoration: none; }
 .foot { margin-top: 2rem; font-size: .875rem; color: var(--text-tertiary); }
 
 /* App */
