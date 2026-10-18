@@ -1,58 +1,47 @@
-//
-//  ScanTipsSheet.swift
-//  FootScan
-//
-
 import SwiftUI
 
-/// How to set up the scan: who holds the phone, how to stand, and the two laps.
+/// The full "How to scan" guide: the diagram and every setup tip. Opens from the intro and from the camera's "?".
 @MainActor
 struct ScanTipsSheet: View {
-    let onStart: () -> Void
+    let onDone: () -> Void
 
-    private static let tips: [(symbol: String, text: String)] = [
-        ("person.2.fill", "Have a friend hold the phone. You stand still."),
-        ("sparkles", "Wipe the back camera lenses clean."),
-        ("figure.stand", "Barefoot, with trousers rolled above the ankle."),
-        ("shoeprints.fill", "Weight on both feet, on a plain, non-shiny floor."),
-        ("sun.max.fill", "Bright, even light, but not direct sun."),
-        ("arrow.triangle.2.circlepath", "Two slow laps: knee height, then near the floor."),
-        ("timer", "Hold still for about 2 minutes."),
+    private static let tips = [
+        "Have a friend hold the phone. You stand still.",
+        "Wipe the back camera lenses clean.",
+        "Barefoot, with trousers rolled above the ankle.",
+        "Weight on both feet, on a plain, non-shiny floor.",
+        "Bright, even light, but not direct sun.",
+        "Two slow laps: knee height, then near the floor.",
+        "Hold still for about 2 minutes.",
     ]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Before You Scan")
-                    .font(.title2.bold())
+            VStack(alignment: .leading, spacing: Space.xl) {
+                Text("How to scan")
+                    .display(.title)
+                    .accessibilityAddTraits(.isHeader)
                 PositioningDiagram()
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(Self.tips, id: \.symbol) { tip in
-                        HStack(spacing: 14) {
-                            Image(systemName: tip.symbol)
-                                .font(.title3)
-                                .foregroundStyle(.tint)
-                                .frame(width: 32)
-                            Text(tip.text)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                VStack(spacing: 0) {
+                    ForEach(Array(Self.tips.enumerated()), id: \.offset) { index, tip in
+                        if index > 0 { Hairline() }
+                        Text(tip)
+                            .foregroundStyle(.ink2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, Space.md)
                     }
                 }
             }
-            .padding()
+            .padding(.horizontal, Space.page)
+            .padding(.top, Space.xl)
+            .padding(.bottom, Space.lg)
         }
         .safeAreaInset(edge: .bottom) {
-            Button {
-                onStart()
-            } label: {
-                Text("Got It")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding()
-            .background(.bar)
+            Button("Got it", action: onDone)
+                .buttonStyle(.archyPrimary)
+                .padding(.horizontal, Space.page)
+                .padding(.bottom, Space.sm)
         }
+        .archyScreen()
     }
 }

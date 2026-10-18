@@ -1,6 +1,6 @@
 //
 //  BrightnessMonitor.swift
-//  FootScan
+//  archy
 //
 
 import AVFoundation

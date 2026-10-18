@@ -1,6 +1,6 @@
 //
 //  Log.swift
-//  FootScan
+//  archy
 //
 
 import os
