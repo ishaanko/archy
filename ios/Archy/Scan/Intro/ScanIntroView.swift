@@ -112,6 +112,10 @@ struct ScanIntroView: View {
                         .font(.footnote)
                         .foregroundStyle(.inkSecondary)
                 }
+            } else if scan.summary != nil {
+                Text("Arch not measured")
+                    .font(.footnote)
+                    .foregroundStyle(.inkSecondary)
             }
             Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.inkTertiary)
         }

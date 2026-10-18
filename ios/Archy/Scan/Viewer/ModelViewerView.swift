@@ -4,16 +4,18 @@ import os
 
 /// What the viewer shows: the scan just made, a saved or imported scan, or the bundled sample.
 enum ViewerSource {
-    case scan(ScanFolder, size: SIMD3<Float>?, arch: FootArchAnalysis?)
+    case scan(ScanFolder, size: SIMD3<Float>?, arch: Result<FootArchAnalysis, any Error>?)
     case saved(OpenedScan)
     case sample(SampleScan)
 
-    /// The model as a faded clay entity in meters, from the reconstructed USDZ or the mesh already in memory.
+    /// The model as a faded clay entity in meters, from the reconstructed USDZ or the mesh already in memory,
+    /// stood level on the floor the arch analysis found.
     func loadEntity() async throws -> Entity {
-        switch self {
-        case .scan(let folder, _, _): try FootModel.entity(for: FootMesh.load(from: folder.modelURL))
-        case .saved(let opened): try FootModel.entity(for: opened.mesh)
-        case .sample(let sample): try FootModel.entity(for: sample.mesh)
+        let floorNormal = analysis?.floorNormal
+        return switch self {
+        case .scan(let folder, _, _): try FootModel.entity(for: FootMesh.load(from: folder.modelURL), floorNormal: floorNormal)
+        case .saved(let opened): try FootModel.entity(for: opened.mesh, floorNormal: floorNormal)
+        case .sample(let sample): try FootModel.entity(for: sample.mesh, floorNormal: floorNormal)
         }
     }
 
@@ -55,14 +57,17 @@ enum ViewerSource {
         folder.map { "Also in Files › archy › Scans › \($0.root.lastPathComponent)" }
     }
 
-    /// Flat or normal arch, measured from the sole; nil when the scan's footprint couldn't be read.
-    var arch: FootArchAnalysis? {
+    /// Flat or normal arch measured from the sole, or why it couldn't be measured.
+    var arch: Result<FootArchAnalysis, any Error>? {
         switch self {
         case .scan(_, _, let arch): arch
         case .saved(let opened): opened.arch
         case .sample(let sample): sample.arch
         }
     }
+
+    /// The arch measurement, when it succeeded.
+    var analysis: FootArchAnalysis? { try? arch?.get() }
 
     var isRealScan: Bool {
         if case .sample = self { false } else { true }
@@ -97,13 +102,15 @@ struct ModelViewerView: View {
                 dimensions(for: size)
             }
 
-            if let arch = source.arch {
+            switch source.arch {
+            case .success(let arch):
                 archCard(arch)
                     .reveal(4)
-            } else if source.isRealScan {
-                Text("Couldn't measure the arch on this scan. The model and STL are fine.")
-                    .font(.footnote)
-                    .foregroundStyle(.inkTertiary)
+            case .failure(let error):
+                archFailure(error)
+                    .reveal(4)
+            case nil:
+                EmptyView()
             }
 
             HStack(spacing: Space.md) {
@@ -162,8 +169,8 @@ struct ModelViewerView: View {
     /// with x or z consistently, so the longer horizontal side is the length.
     private func dimensions(for size: SIMD3<Float>) -> some View {
         let values: [(label: String, millimeters: Double)] = [
-            ("Length", source.arch.map { $0.footLengthCM * 10 } ?? Double(max(size.x, size.z)) * 1000),
-            ("Width", source.arch.map { $0.footWidthCM * 10 } ?? Double(min(size.x, size.z)) * 1000),
+            ("Length", source.analysis.map { $0.footLengthCM * 10 } ?? Double(max(size.x, size.z)) * 1000),
+            ("Width", source.analysis.map { $0.footWidthCM * 10 } ?? Double(min(size.x, size.z)) * 1000),
             ("Height", Double(size.y) * 1000),
         ]
         let digits = unit.fractionDigits(fine: false)
@@ -188,7 +195,8 @@ struct ModelViewerView: View {
         }
     }
 
-    /// Flat or normal, with the footprint it was read from and how far the inner arch lifts.
+    /// Flat or normal, with the footprint it was read from and how far the inner arch lifts. No Arch Index:
+    /// on 3D scans it can disagree with the verdict (a normal foot read 0.29).
     private func archCard(_ arch: FootArchAnalysis) -> some View {
         HStack(alignment: .center, spacing: Space.lg) {
             FootprintView(footprint: arch.footprint)
@@ -202,14 +210,29 @@ struct ModelViewerView: View {
                         .font(.footnote)
                         .foregroundStyle(.inkTertiary)
                 }
-                Text("Arch Index \(arch.archIndex, format: .number.precision(.fractionLength(2)))")
-                    .font(.footnote)
-                    .foregroundStyle(.inkSecondary)
+                if arch.isSoleUneven {
+                    Text("You weren't standing flat, so this is less certain.")
+                        .font(.footnote)
+                        .foregroundStyle(.inkSecondary)
+                }
                 Text("A screening estimate, not a diagnosis.")
                     .font(.caption)
                     .foregroundStyle(.inkTertiary)
             }
             Spacer(minLength: 0)
+        }
+        .surface(padding: Space.md)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The analyzer's reason the arch has no reading. The model and STL are fine either way.
+    private func archFailure(_ error: any Error) -> some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            Text("Arch not measured")
+                .display(.headline)
+            Text(error.localizedDescription)
+                .font(.footnote)
+                .foregroundStyle(.inkSecondary)
         }
         .surface(padding: Space.md)
         .accessibilityElement(children: .combine)
