@@ -97,6 +97,8 @@ final class GuidanceVoice: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerD
     override init() {
         super.init()
         synthesizer.delegate = self
+        NotificationCenter.default.addObserver(self, selector: #selector(interrupted), name: AVAudioSession.interruptionNotification,
+                                               object: AVAudioSession.sharedInstance())
         if !Self.didPurge { Self.didPurge = true; VoiceCache.purgeOldVersions() }
         #if DEBUG
         VoiceConnection.applyLaunchOverrides()
@@ -168,6 +170,13 @@ final class GuidanceVoice: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerD
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) { ended(utterance) }
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) { ended(player) }
     nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: (any Error)?) { ended(player) }
+
+    /// A call or alarm pauses playback with no finish callback, so an interruption ends the line for good.
+    @objc nonisolated private func interrupted(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              AVAudioSession.InterruptionType(rawValue: raw) == .began else { return }
+        Task { @MainActor in self.stop() }
+    }
 
     /// AVFoundation may call back off the main thread; only the current line clears `isSpeaking`.
     nonisolated private func ended(_ object: AnyObject) {
