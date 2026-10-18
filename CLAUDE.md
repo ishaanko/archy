@@ -5,7 +5,7 @@ iOS app that scans a person's foot into a 3D model (the default feature).
 Later phase: detect flat feet from that model. **Right now we only build scanning.**
 
 ## Hard constraints
-- SwiftUI app, iOS 17+ deployment target. Mark UI and capture-session code `@MainActor`.
+- SwiftUI app, iOS 18+ deployment target. Mark UI and capture-session code `@MainActor`.
 - Apple frameworks only (RealityKit Object Capture, ARKit, ModelIO, QuickLook). No third-party packages unless I approve.
 - Runs only on a physical LiDAR iPhone/iPad. The simulator can't run `ObjectCaptureSession`:
   check `ObjectCaptureSession.isSupported` and show a clear message instead of crashing.
