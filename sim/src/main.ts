@@ -193,7 +193,8 @@ function tick(now: number): void {
   raf = 0
   if (!session || !a) return
   if (playing && session.trial) {
-    const dt = Math.min(0.1, (now - last) / 1000)
+    // rAF timestamps can precede the performance.now() taken in enter(), so clamp dt at 0.
+    const dt = Math.max(0, Math.min(0.1, (now - last) / 1000))
     position = (position + dt * session.trial.fs * Number(el.speed.value)) % session.trial.nFrames
     dirty = true
   }
@@ -220,7 +221,7 @@ function draw(): void {
   let map: Float32Array, vmax = a.peakMax, frame = 0
   if (session.trial) {
     const t = session.trial
-    frame = Math.min(t.nFrames - 1, Math.floor(position))
+    frame = Math.max(0, Math.min(t.nFrames - 1, Math.floor(position)))
     map = mode === "peak" ? a.peak : diverging ? a.diff : a.maps!.subarray(frame * size, (frame + 1) * size)
     pose = reducedMotion.matches || screen !== "watch" ? FLAT_POSE : stancePose(frame / t.nFrames)
   } else {
