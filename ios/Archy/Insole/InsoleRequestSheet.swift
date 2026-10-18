@@ -26,6 +26,7 @@ struct InsoleRequestSheet: View {
     @Environment(InsoleRequestStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(MeasurementUnit.storageKey) private var unit = MeasurementUnit.localeDefault()
     @State private var consent = false
     @State private var scan: InsoleScan?
     @State private var saved: URL?
@@ -60,7 +61,7 @@ struct InsoleRequestSheet: View {
                     InsoleDetailRow(label: "Walking on", value: "\(design.environment.title), \(design.environment.g.formatted(.number.precision(.fractionLength(2)))) g")
                     InsoleDetailRow(label: "Material", value: design.material.rawValue)
                     InsoleDetailRow(label: "Arch support", value: "\(Int((design.support * 100).rounded()))%")
-                    InsoleDetailRow(label: "Measurements", value: "\(foot.fullLength.formatted(.number.precision(.fractionLength(0)))) \u{00D7} \(foot.width.formatted(.number.precision(.fractionLength(0)))) mm, AHI \(ahi.formatted(.number.precision(.fractionLength(3))))")
+                    InsoleDetailRow(label: "Measurements", value: "\(unit.format(millimeters: foot.fullLength, symbol: false)) \u{00D7} \(unit.format(millimeters: foot.width, symbol: false)) \(unit.symbol), AHI \(ahi.formatted(.number.precision(.fractionLength(3))))")
                     InsoleDetailRow(label: "Source", value: assessment.isSynthetic ? "Sample" : "Saved \(assessment.date.formatted(date: .abbreviated, time: .omitted))")
                 }
                 VStack(spacing: 0) {
