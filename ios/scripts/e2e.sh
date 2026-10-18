@@ -8,10 +8,12 @@ device="${2:-iPhone 18 Pro}"
 udid=$(xcrun simctl list devices available | grep -F "$device (" | head -1 | grep -oE '[0-9A-F-]{36}')
 xcrun simctl boot "$udid" 2>/dev/null || true
 xcrun simctl ui "$udid" appearance "$appearance"
+# Start from a clean install: saved assessments or scans from an earlier run change what Home and Scan show.
+xcrun simctl uninstall "$udid" com.dubhacks.archy 2>/dev/null || true
 result="/tmp/archy-e2e-$appearance.xcresult"
 rm -rf "$result"
 xcodebuild test -project Archy.xcodeproj -scheme Archy -destination "id=$udid" \
-  -derivedDataPath /tmp/ArchyDD-e2e -resultBundlePath "$result" -quiet
+  -derivedDataPath /tmp/ArchyDD-e2e -resultBundlePath "$result" -collect-test-diagnostics never -quiet
 out="e2e-artifacts/$appearance"
 rm -rf "$out" && mkdir -p "$out"
 xcrun xcresulttool export attachments --path "$result" --output-path "$out" >/dev/null

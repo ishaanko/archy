@@ -80,6 +80,86 @@ final class ArchyFlowUITests: XCTestCase {
         capture("voice-status")
         XCTAssertTrue(test.label.contains("Grok voice"), "Expected Grok, got: \(test.label)")
         XCTAssertFalse(test.label.contains("on-device"), "Fell back to on-device: \(test.label)")
+    func testOnboardingMenuStaysOnEveryStep() {
+        let menu = app.buttons["onboarding.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), "Missing menu on welcome")
+        let welcomeFrame = menu.frame
+        for (id, step) in [("onboarding.start", "goal"), ("quiz.goal.understandArch", "background"),
+                           ("quiz.diagnosis.none", "pain"), ("quiz.pain.none", "done")] {
+            tap(id)
+            XCTAssertTrue(app.buttons["onboarding.finish"].exists || app.buttons["quiz.back"].waitForExistence(timeout: 5))
+            sleep(1)
+            capture("menu-\(step)")
+            XCTAssertTrue(menu.exists && menu.isHittable, "Menu missing on \(step)")
+            XCTAssertEqual(menu.frame.maxX, welcomeFrame.maxX, accuracy: 1, "Menu moved on \(step)")
+            XCTAssertEqual(menu.frame.minY, welcomeFrame.minY, accuracy: 1, "Menu moved on \(step)")
+        }
+    }
+
+    func testOnboardingMenuInEditMode() {
+        app.terminate()
+        app.launchArguments = ["-ArchySkipOnboarding", "YES", "-accessibility.voiceGuidance", "NO"]
+        app.launch()
+        tap("home.editAnswers")
+        let menu = app.buttons["onboarding.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), "Missing menu in edit mode")
+        sleep(1)
+        capture("edit-goal")
+        let goalFrame = menu.frame
+        for (id, step) in [("quiz.goal.understandArch", "background"), ("quiz.diagnosis.none", "pain")] {
+            tap(id)
+            XCTAssertTrue(app.buttons["quiz.back"].waitForExistence(timeout: 5))
+            sleep(1)
+            XCTAssertTrue(menu.exists && menu.isHittable, "Menu missing on \(step) in edit mode")
+            XCTAssertEqual(menu.frame, goalFrame, "Menu moved on \(step) in edit mode")
+        }
+    }
+
+    func testTipsSheetHasReadAloud() {
+        app.terminate()
+        app.launchArguments = ["-ArchySkipOnboarding", "YES", "-ArchyTab", "scan", "-ArchyRoute", "scan.tips", "-accessibility.voiceGuidance", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["scan.tips.read"].waitForExistence(timeout: 10), "Missing read-aloud control in the tips sheet")
+    }
+
+    func testCoachSoundOptionsToggleAfterStart() {
+        app.terminate()
+        // No `-accessibility.*` launch arguments here: they would shadow the stored values the menu writes.
+        app.launchArguments = ["-ArchySkipOnboarding", "YES", "-ArchyTab", "train"]
+        app.launch()
+        tap("studio.shortFoot")
+        let sound = app.buttons["coach.sound"]
+        XCTAssertEqual(sound.value as? String, "Off")
+
+        // Before Start the options work; that's the baseline for the rest.
+        flipSoundOption("Read aloud", expecting: "On")
+        flipSoundOption("Read aloud", expecting: "Off")
+
+        // Mid-hold: both can be enabled, and each keeps the menu "On" until both are off.
+        tap("coach.start")
+        XCTAssertTrue(app.buttons["coach.pause"].waitForExistence(timeout: 5))
+        sleep(2)
+        flipSoundOption("Read aloud", expecting: "On")
+        flipSoundOption("Sound cues", expecting: "On")
+
+        // Paused: both can be turned back off.
+        tap("coach.pause")
+        XCTAssertTrue(app.buttons["coach.start"].waitForExistence(timeout: 5))
+        flipSoundOption("Read aloud", expecting: "On")
+        flipSoundOption("Sound cues", expecting: "Off")
+    }
+
+    /// Opens the coach's speaker menu, taps one option, then checks the menu's On/Off state.
+    private func flipSoundOption(_ option: String, expecting state: String, file: StaticString = #filePath, line: UInt = #line) {
+        let sound = app.buttons["coach.sound"]
+        sound.tap()
+        sleep(2) // long enough for the countdown to tick under an open menu
+        let item = app.buttons[option]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "Missing \(option)", file: file, line: line)
+        XCTAssertTrue(item.isEnabled, "\(option) is disabled", file: file, line: line)
+        item.tap()
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", state), object: sound)
+        XCTAssertEqual(XCTWaiter().wait(for: [changed], timeout: 3), .completed, "\(option) did not leave the menu \(state)", file: file, line: line)
     }
 
     /// Waits for a button, optionally screenshots the screen it's on, then taps it.

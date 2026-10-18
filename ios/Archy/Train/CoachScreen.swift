@@ -179,16 +179,7 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
                 .contentTransition(.numericText())
                 .animation(Motion.snappy.reduced(reduceMotion), value: session.round)
             Spacer()
-            Menu {
-                Toggle("Read aloud", isOn: $narration)
-                Toggle("Sound cues", isOn: $audioCues)
-            } label: {
-                Image(systemName: narration || audioCues ? "speaker.wave.2" : "speaker.slash")
-                    .font(.body.weight(.medium)).frame(width: 44, height: 44)
-            }
-            .foregroundStyle(.inkSecondary)
-            .accessibilityLabel("Sound")
-            .accessibilityIdentifier("coach.sound")
+            CoachSoundMenu()
         }
     }
 
@@ -257,6 +248,27 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
         if audioCues { AudioServicesPlaySystemSound(1104) }
         guard narration, let line = program.narration(phase) else { return }
         voice.readScript(line.script, fallback: line.text, timed: true)
+    }
+}
+
+/// The speaker menu with read aloud and sound cues. It has no inputs and owns its settings, so the
+/// coach's once-a-second countdown never rebuilds it while it is open.
+private struct CoachSoundMenu: View {
+    @AppStorage("accessibility.voiceGuidance") private var narration = false
+    @AppStorage("accessibility.audioCues") private var audioCues = false
+
+    var body: some View {
+        Menu {
+            Toggle("Read aloud", isOn: $narration)
+            Toggle("Sound cues", isOn: $audioCues)
+        } label: {
+            Image(systemName: narration || audioCues ? "speaker.wave.2" : "speaker.slash")
+                .font(.body.weight(.medium)).frame(width: 44, height: 44)
+        }
+        .foregroundStyle(.inkSecondary)
+        .accessibilityLabel("Sound")
+        .accessibilityValue(narration || audioCues ? "On" : "Off")
+        .accessibilityIdentifier("coach.sound")
     }
 }
 
