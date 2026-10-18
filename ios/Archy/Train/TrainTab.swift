@@ -1,14 +1,15 @@
 import SwiftUI
 
 enum TrainRoute: Hashable {
-    case shortFoot, balance
+    case shortFoot, balance, heelRaise, toeYoga
     #if DEBUG
-    case shortFootHold, balanceHold, done
+    case shortFootHold, balanceHold, heelRaiseHold, toeYogaHold, done
     #endif
 }
 
 /// Train tab entry point. Owns its NavigationStack.
-/// Debug routes: train.library, train.shortfoot, train.shortfoot.hold, train.balance, train.balance.hold, train.done.
+/// Debug routes: train.library, train.shortfoot, train.shortfoot.hold, train.balance, train.balance.hold,
+/// train.heelraise, train.heelraise.hold, train.toeyoga, train.toeyoga.hold, train.done.
 struct TrainTab: View {
     @Environment(AppRouter.self) private var router
     @State private var path: [TrainRoute] = []
@@ -21,9 +22,13 @@ struct TrainTab: View {
                     switch route {
                     case .shortFoot: ExerciseCoachView()
                     case .balance: BalanceCoachView()
+                    case .heelRaise: HeelRaiseCoachView()
+                    case .toeYoga: ToeYogaCoachView()
                     #if DEBUG
                     case .shortFootHold: ExerciseCoachView(debugElapsed: 21)
                     case .balanceHold: BalanceCoachView(debugElapsed: 8)
+                    case .heelRaiseHold: HeelRaiseCoachView(debugElapsed: 7)
+                    case .toeYogaHold: ToeYogaCoachView(debugElapsed: 5)
                     case .done:
                         CoachCompletion(fact: CoachProgram.shortFoot.finishedFact) { path.removeAll() }
                             .archyScreen()
@@ -42,6 +47,10 @@ struct TrainTab: View {
             case "train.shortfoot.hold": path = [.shortFootHold]
             case "train.balance": path = [.balance]
             case "train.balance.hold": path = [.balanceHold]
+            case "train.heelraise": path = [.heelRaise]
+            case "train.heelraise.hold": path = [.heelRaiseHold]
+            case "train.toeyoga": path = [.toeYoga]
+            case "train.toeyoga.hold": path = [.toeYogaHold]
             case "train.done": path = [.done]
             default: break
             }
@@ -63,6 +72,22 @@ struct ExerciseLibraryView: View {
                 .buttonStyle(.archyPressable)
                 .accessibilityIdentifier("studio.shortFoot")
                 .reveal(1)
+                NavigationLink(value: TrainRoute.toeYoga) {
+                    ExerciseCard(title: "Toe yoga", fact: "Seated · 5 rounds · 40 sec") { lift in
+                        ToeYogaDiagram(bigLift: lift, smallLift: 0)
+                    }
+                }
+                .buttonStyle(.archyPressable)
+                .accessibilityIdentifier("studio.toeYoga")
+                .reveal(2)
+                NavigationLink(value: TrainRoute.heelRaise) {
+                    ExerciseCard(title: "Heel raises", fact: "Standing · 10 reps · 1 min") { rise in
+                        HeelRaiseDiagram(rise: rise)
+                    }
+                }
+                .buttonStyle(.archyPressable)
+                .accessibilityIdentifier("studio.heelRaise")
+                .reveal(3)
                 NavigationLink(value: TrainRoute.balance) {
                     ExerciseCard(title: "Tandem balance", fact: "Standing · 2 holds · 1 min") { stance in
                         BalanceStanceDiagram(tandem: stance > 0.5, leftLeads: true, holding: false)
@@ -70,7 +95,7 @@ struct ExerciseLibraryView: View {
                 }
                 .buttonStyle(.archyPressable)
                 .accessibilityIdentifier("studio.balance")
-                .reveal(2)
+                .reveal(4)
             }
             .padding(.horizontal, Space.page)
             .padding(.top, Space.lg)
