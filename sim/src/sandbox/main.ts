@@ -4,13 +4,16 @@ import "./sandbox.css"
 import { colormapCss, type ColormapName } from "../core/colormap"
 import { stancePose, type FootPose } from "../core/gait"
 import { computeIndices } from "../core/indices"
+import { archHeightFor } from "../core/insole"
+import { insoleFromPeak } from "../core/insoleFromPeak"
+import { toBinaryStl } from "../core/stl"
 import { edgeDistance, footOutline, inside } from "../core/outline"
-import { createPressureModel, interpolate, sampleGrid, SPARSE_KERNEL, type PressureModel } from "../core/pressure"
+import { createPressureModel, interpolate, SPARSE_KERNEL, type PressureModel } from "../core/pressure"
 import type { Template } from "../core/template"
 import { readArch, type ArchLevel } from "../core/verdict"
 import { connectSerial, INNER_ARCH_INDEX, isSerialSupported, SENSOR_NAMES, SENSOR_POSITIONS, type SerialSensor } from "../hardware"
 import { addPress, coverageError, DEFAULT_POSE, standingField, walkingField, WALK_SECONDS, worstSpot, type Pose, type Press } from "./field"
-import { BOARDS, DISC_SAMPLES, readFsr, serialText, type BoardId, type FsrReading } from "./fsr"
+import { BOARDS, readSensors, serialText, type BoardId, type FsrReading } from "./fsr"
 import { insoleBounds, layoutJson, type SensorDef } from "./layout"
 import { SandboxScene } from "./view"
 
@@ -28,6 +31,7 @@ const el = {
   hint: $<HTMLElement>("#hint"), hintText: $<HTMLElement>("#hint-text"), hintClose: $<HTMLButtonElement>("#hint-close"),
   walkIco: $<SVGElement>("#walk-ico"), walkTxt: $<HTMLElement>("#walk-txt"),
   tbody: $<HTMLTableSectionElement>("#tbl tbody"), serial: $<HTMLElement>("#serial"), pins: $<HTMLElement>("#pins"), status: $<HTMLElement>("#status"),
+  exportStl: $<HTMLButtonElement>("#export-stl"), exportNote: $<HTMLElement>("#export-note"),
   add: $<HTMLButtonElement>("#add"), remove: $<HTMLButtonElement>("#remove"), reset: $<HTMLButtonElement>("#reset"),
   copy: $<HTMLButtonElement>("#copy"), connect: $<HTMLButtonElement>("#connect"), tare: $<HTMLButtonElement>("#tare"), camera: $<HTMLButtonElement>("#camera"),
   legendBar: $<HTMLElement>("#lg-bar"), len: $<HTMLElement>("#len"),
@@ -111,6 +115,7 @@ function schedule(): void {
 function invalidate(what: { pose?: boolean; layout?: boolean; ui?: boolean } = {}): void {
   needsCompute = true
   resetPeaks = true
+  cyclePeaks = null
   poseDirty ||= what.pose ?? false
   layoutDirty ||= what.layout ?? false
   sensorUiDirty ||= (what.layout ?? false) || (what.ui ?? false)
@@ -478,6 +483,49 @@ const setText = (node: HTMLElement, text: string) => {
   if (node.textContent !== text) node.textContent = text
 }
 
+// ---- insole export ---------------------------------------------------------------------------------------------------
+
+/** Peak maps the export is built from. Static: the current field. Walking: the peak over one full gait cycle (the on-screen
+ *  peaks only fill in after a cycle). Live kit: the peaks gathered so far. Cached until an input changes. */
+let cyclePeaks: { truth: Float32Array; seen: Float32Array } | null = null
+const CYCLE_STEPS = 60
+
+function exportPeaks(): { truth: Float32Array; seen: Float32Array } {
+  if (!state.walk || state.live) return { truth: truePeak, seen: seenPeak }
+  if (cyclePeaks) return cyclePeaks
+  const peaks = { truth: new Float32Array(size), seen: new Float32Array(size) }
+  const field = new Float32Array(size), sensed = new Float32Array(size)
+  const press: Press | null = state.press ? { ...state.press, radius: state.pressRadius, newtons: state.pressForce } : null
+  for (let i = 0; i < CYCLE_STEPS; i++) {
+    walkingField(grid, stand, i / CYCLE_STEPS, field)
+    if (press) addPress(grid, field, press)
+    const kPa = Float32Array.from(readSensors(grid, field, state.sensors, BOARDS[state.board]), (r) => r.seenKPa)
+    interpolate(model, kPa, 0, sensed)
+    for (let c = 0; c < size; c++) {
+      peaks.truth[c] = Math.max(peaks.truth[c], field[c])
+      peaks.seen[c] = Math.max(peaks.seen[c], sensed[c])
+    }
+  }
+  return (cyclePeaks = peaks)
+}
+
+const exportMap = () => (state.view === "seen" ? exportPeaks().seen : exportPeaks().truth)
+const presetName = (arch: number) => (arch === 0 ? "flat" : arch === 0.5 ? "typical" : arch === 1 ? "high" : `arch${arch}`)
+
+function updateExportNote(): void {
+  const mm = Math.round(archHeightFor(computeIndices(grid, exportMap())?.archIndex))
+  setText(el.exportNote, `${state.view === "seen" ? "From what the sensors see" : "From the real pressure"}. Arch support ${mm} mm.`)
+}
+
+el.exportStl.addEventListener("click", () => {
+  const { mesh } = insoleFromPeak(outline, grid, exportMap())
+  const name = `archy-insole-${presetName(state.pose.arch)}-${state.view === "seen" ? "sensors" : "real"}.stl`
+  const url = URL.createObjectURL(new Blob([toBinaryStl(mesh)], { type: "model/stl" }))
+  Object.assign(document.createElement("a"), { href: url, download: name }).click()
+  URL.revokeObjectURL(url)
+  el.status.textContent = `Saved ${name}. Nothing was uploaded.`
+})
+
 const footUrl = (arch: number) => `${import.meta.env.BASE_URL}models/foot-${arch < 0.3 ? "flatter" : arch > 0.7 ? "higher" : "typical"}.glb`
 let footKey = ""
 
@@ -505,11 +553,7 @@ function compute(now: number): void {
 
   // Sensors: true pressure on each active area -> FSR -> divider -> ADC -> app's kPa estimate.
   const board = BOARDS[state.board]
-  readings = state.sensors.map((s) => {
-    let sum = 0
-    for (const [dx, dy] of DISC_SAMPLES) sum += sampleGrid(grid, truth, s.x + dx, s.y + dy)
-    return readFsr(sum / DISC_SAMPLES.length, s.gain, board)
-  })
+  readings = readSensors(grid, truth, state.sensors, board)
   const est = state.live?.sensors.length === readings.length && state.liveKPa ? state.liveKPa : Float32Array.from(readings, (r) => r.seenKPa)
   interpolate(model, est, 0, seen)
 
@@ -541,6 +585,7 @@ function compute(now: number): void {
     ? `<span class="think">They think: <b>${word(aSeen)}</b>.</span> Real foot: <b>${word(aTrue)}</b>.`
     : `They agree: <b>${word(aTrue)}</b>.`
   updateHint()
+  updateExportNote()
 
   if (sensorUiDirty) {
     rebuildSensorUi()

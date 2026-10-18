@@ -96,3 +96,8 @@ pre { margin: 8px 0; padding: 10px 12px; font: 12px var(--font-mono); background
   #stage { grid-row: 2; }
   .stage-seg span { padding: 0 10px; }
 }
+
+/* ---- insole export ---- */
+.export { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: -8px; }
+.export .btn.primary { min-width: 0; }
+.export .small { color: var(--text-sec); }

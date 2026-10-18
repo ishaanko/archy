@@ -1,3 +1,5 @@
+import { sampleGrid, type Grid } from "../core/pressure"
+import type { Point } from "../core/types"
 import { adcToKPa, DIVIDER_OHMS } from "../hardware/calibrate"
 
 /** Approximate electronics model of one FSR in the kit's divider (supply -> FSR -> pin -> 10k -> GND).
@@ -75,4 +77,13 @@ export function readFsr(kPa: number, gain: number, board: Board): FsrReading {
 /** What the firmware prints for one frame (see hardware/README.md, serial protocol). */
 export function serialText(board: Board, adcs: readonly number[]): string {
   return `I,foot_sensor,${adcs.length},${2 ** board.bits - 1}\nP,${adcs.join(",")}`
+}
+
+/** Reads every sensor from a true pressure map: the mean over the 12.7 mm active disc at each position, through the FSR chain. */
+export function readSensors(grid: Grid, truth: Float32Array, sensors: readonly (Point & { gain: number })[], board: Board): FsrReading[] {
+  return sensors.map((s) => {
+    let sum = 0
+    for (const [dx, dy] of DISC_SAMPLES) sum += sampleGrid(grid, truth, s.x + dx, s.y + dy)
+    return readFsr(sum / DISC_SAMPLES.length, s.gain, board)
+  })
 }
