@@ -16,7 +16,7 @@ import simd
 /// a heel-to-ball line. The **Arch Index** (Cavanagh & Rodgers 1987: middle third of the toe-less
 /// footprint over the whole; ≥ 0.26 flat) is reported too, but a foot rolled onto its outer edge
 /// pushes it toward "flat" even with a clear arch, so it doesn't decide.
-enum FootArchAnalyzer {
+nonisolated enum FootArchAnalyzer {
     /// Grid resolution of the footprint.
     static let cellSize: Float = 0.003
     /// Surface this close to the floor counts as contact. 3 mm is within the mesh's noise.
@@ -258,14 +258,14 @@ enum FootArchAnalyzer {
     }
 }
 
-enum ArchType: String {
+nonisolated enum ArchType: String {
     case flat
     /// Includes high arches; the app only needs to know whether the foot is flat.
     case normal
 }
 
 /// The result of `FootArchAnalyzer.analyze(_:)`.
-struct FootArchAnalysis {
+nonisolated struct FootArchAnalysis {
     let archIndex: Double
     /// How far the inner arch lifts off the floor, against a heel-to-ball line.
     let archHeightMM: Double
@@ -288,7 +288,7 @@ struct FootArchAnalysis {
 
 /// The sole as seen from below, for drawing: columns run heel → toe, rows across the foot.
 /// Arrays are row-major: `contact[row * columns + column]`.
-struct Footprint {
+nonisolated struct Footprint {
     let cellSize: Float
     let columns: Int
     let rows: Int
@@ -306,7 +306,7 @@ struct Footprint {
 }
 
 /// The lowest surface height above the floor in each cell of a grid laid along the foot.
-private struct HeightGrid {
+private nonisolated struct HeightGrid {
     let columns: Int
     let rows: Int
     /// Meters above the floor; infinity where there's no surface.
