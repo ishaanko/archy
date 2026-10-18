@@ -3,7 +3,12 @@ import { SENSOR_NAMES, SENSOR_POSITIONS } from "./layout"
 import type { LiveSensor } from "./types"
 
 const BAUD = 115200
-const DEFAULT_ADC_MAX = 1023
+/** Full-scale ADC counts: Uno/Nano are 10-bit, ESP32 is 12-bit. The firmware's "I," header says which. */
+const AVR_ADC_MAX = 1023
+const ESP32_ADC_MAX = 4095
+/** Boards that don't reset on open never print the header unprompted, so we ask for it after this long.
+ *  Waiting first keeps the byte away from an AVR bootloader that is still running after the reset. */
+const HEADER_WAIT_MS = 1500
 
 /** A serial device plus its calibrator (call `calibrator.tare()` with the foot off, toggle `normalize`). */
 export interface SerialSensor extends LiveSensor {
@@ -31,12 +36,25 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
   if (!port.readable) throw new Error("Port is not readable")
 
   const n = SENSOR_POSITIONS.length
-  let calibrator = createCalibrator(DEFAULT_ADC_MAX, n)
+  let adcMax = AVR_ADC_MAX
+  let headerSeen = false
+  let calibrator = createCalibrator(adcMax, n)
   const subs = new Set<(kPa: Float32Array, tMs: number) => void>()
   const t0 = performance.now()
   let closed = false
 
-  const reader = port.readable.pipeThrough(new TextDecoderStream()).getReader()
+  const setAdcMax = (max: number) => {
+    if (max === adcMax) return
+    adcMax = max
+    const prev = calibrator
+    calibrator = createCalibrator(max, n)
+    calibrator.normalize = prev.normalize
+  }
+
+  // Keep the pipe's promise so disconnect() can wait for it to release port.readable.
+  const decoder = new TextDecoderStream()
+  const piped = port.readable.pipeTo(decoder.writable).catch(() => {})
+  const reader = decoder.readable.getReader()
   const pump = (async () => {
     let buf = ""
     try {
@@ -48,16 +66,17 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
         buf = lines.pop() ?? ""
         for (const line of lines) {
           if (line.startsWith("I,")) {
-            const adcMax = Number(line.split(",")[3])
-            if (adcMax > 0) {
-              const prev = calibrator
-              calibrator = createCalibrator(adcMax, n)
-              calibrator.normalize = prev.normalize
+            const max = Number(line.split(",")[3])
+            if (max > 0) {
+              headerSeen = true
+              setAdcMax(max)
             }
             continue
           }
           const raw = parseFrame(line, n)
           if (!raw) continue
+          // No header yet: a 10-bit board can't read above 1023, so a higher count means a 12-bit ESP32.
+          if (!headerSeen && raw.some((v) => v > AVR_ADC_MAX)) setAdcMax(ESP32_ADC_MAX)
           const kPa = calibrator.convert(raw)
           const t = performance.now() - t0
           for (const cb of subs) cb(kPa, t)
@@ -68,7 +87,15 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
     }
   })()
 
-  // Calibrator is swapped when the header arrives, so expose a stable proxy.
+  // The firmware re-sends its header on any byte. Best effort: the range check above covers a failed write.
+  let headerRequest = Promise.resolve()
+  const headerTimer = setTimeout(() => {
+    if (headerSeen || !port.writable) return
+    const writer = port.writable.getWriter()
+    headerRequest = writer.write(new Uint8Array([10])).catch(() => {}).finally(() => writer.releaseLock())
+  }, HEADER_WAIT_MS)
+
+  // Calibrator is swapped when the full scale changes, so expose a stable proxy.
   const proxy: Calibrator = {
     get normalize() { return calibrator.normalize },
     set normalize(v) { calibrator.normalize = v },
@@ -91,10 +118,12 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
     async disconnect() {
       if (closed) return
       closed = true
+      clearTimeout(headerTimer)
       subs.clear()
+      // close() rejects while either stream is locked, so unwind the pipe and any pending write first.
       await reader.cancel().catch(() => {})
-      await pump
-      await port.close().catch(() => {})
+      await Promise.all([piped, pump, headerRequest])
+      await port.close()
     },
   }
 }
