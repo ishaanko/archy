@@ -5,11 +5,13 @@
 
 import SwiftUI
 import UIKit
+import os
 
 /// Picks the screen for the current scan phase.
 @MainActor
 struct ScanRootView: View {
     @Environment(ScanFlowModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -23,9 +25,14 @@ struct ScanRootView: View {
                     } else {
                         ProgressView()
                     }
-                case .reconstructing, .viewing:
-                    // Milestone 1 stops after capture; reconstruction and the viewer come next.
-                    CaptureSavedView()
+                case .reconstructing:
+                    if let reconstructor = model.reconstructor {
+                        ReconstructionView(reconstructor: reconstructor)
+                    } else {
+                        ProgressView("Saving model…")
+                    }
+                case .viewing:
+                    ModelReadyView()
                 case .failed(let message):
                     FailedView(message: message)
                 }
@@ -35,6 +42,10 @@ struct ScanRootView: View {
             // Keep the screen awake during capture and processing.
             UIApplication.shared.isIdleTimerDisabled = true
             model.startSession()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // iOS may suspend processing in the background; this shows up in the logs if it happens.
+            Log.flow.notice("App scene phase \(String(describing: newPhase), privacy: .public) during \(String(describing: model.phase), privacy: .public)")
         }
     }
 }
@@ -49,16 +60,24 @@ private struct UnsupportedDeviceView: View {
     }
 }
 
-/// Temporary end of Milestone 1: confirms the images are on disk.
-private struct CaptureSavedView: View {
+/// Temporary end of Milestone 2: confirms the model files exist. Milestone 3 replaces it with the 3D viewer.
+private struct ModelReadyView: View {
     @Environment(ScanFlowModel.self) private var model
 
     var body: some View {
         ContentUnavailableView {
-            Label("Capture Saved", systemImage: "checkmark.circle")
+            Label("Model Ready", systemImage: "checkmark.circle")
         } description: {
-            if let folder = model.folder {
-                Text("\(folder.imageCount()) images saved to\nScans/\(folder.root.lastPathComponent)/Images")
+            VStack(spacing: 8) {
+                if let size = model.modelSize {
+                    let cm = size * 100
+                    // The model is Y up: x = width, y = height, z = length.
+                    Text("\(cm.z, format: .number.precision(.fractionLength(1))) cm long × \(cm.x, format: .number.precision(.fractionLength(1))) cm wide × \(cm.y, format: .number.precision(.fractionLength(1))) cm tall")
+                        .font(.headline)
+                }
+                if let folder = model.folder {
+                    Text("Saved foot.usdz and foot.stl in\nFiles › FootScan › Scans › \(folder.root.lastPathComponent)")
+                }
             }
         } actions: {
             Button("New Scan") { model.startOver() }
@@ -77,8 +96,15 @@ private struct FailedView: View {
         } description: {
             Text(message)
         } actions: {
-            Button("Start Over") { model.startOver() }
-                .buttonStyle(.borderedProminent)
+            if model.canRetryProcessing {
+                Button("Retry Processing") { model.retryProcessing() }
+                    .buttonStyle(.borderedProminent)
+                Button("New Scan") { model.startOver() }
+                    .buttonStyle(.bordered)
+            } else {
+                Button("Start Over") { model.startOver() }
+                    .buttonStyle(.borderedProminent)
+            }
         }
     }
 }

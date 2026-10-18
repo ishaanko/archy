@@ -32,8 +32,15 @@ final class ScanFlowModel {
     private(set) var isPassComplete = false
     private(set) var passNumber = 1
 
+    /// The running reconstruction, for the progress screen.
+    private(set) var reconstructor: Reconstructor?
+    /// Bounding-box size of the finished model in meters (width, height, depth).
+    private(set) var modelSize: SIMD3<Float>?
+    /// The last failure happened while processing saved photos, so they can be processed again.
+    private(set) var canRetryProcessing = false
+
     /// The session needs at least this many images to finish (same as Apple's sample).
-    static let minimumShots = 10
+    nonisolated static let minimumShots = 10
 
     let isSupported = ObjectCaptureSession.isSupported
 
@@ -123,13 +130,68 @@ final class ScanFlowModel {
         session?.cancel()
     }
 
-    /// Returns to a fresh camera from the summary or failure screen. Earlier scans stay on disk.
+    /// Returns to a fresh camera from the result or failure screen. Earlier scans stay on disk.
     func startOver() {
         Log.flow.notice("Start over")
         tearDownSession()
+        reconstructor = nil
+        modelSize = nil
+        canRetryProcessing = false
         folder = nil
         phase = .ready
         startSession()
+    }
+
+    func cancelReconstruction() {
+        reconstructor?.cancel()
+    }
+
+    /// Processes the current scan's saved photos again after a failure or cancel.
+    func retryProcessing() {
+        Log.flow.notice("Retry processing")
+        startReconstruction()
+    }
+
+    // MARK: - Reconstruction
+
+    private func startReconstruction() {
+        guard let folder else { return }
+        folder.removeOutputs()
+        canRetryProcessing = false
+        modelSize = nil
+        let reconstructor = Reconstructor(folder: folder)
+        self.reconstructor = reconstructor
+        phase = .reconstructing
+        // Owned by the model, not a view, so screen changes can't cancel it.
+        Task {
+            do {
+                try await reconstructor.run()
+                try exportSTL(from: folder)
+                self.reconstructor = nil
+                phase = .viewing
+            } catch is CancellationError {
+                failProcessing("Processing was cancelled. Your photos are still saved.")
+            } catch {
+                Log.reconstruction.error("Reconstruction failed: \(String(describing: error), privacy: .public)")
+                failProcessing("Building the model failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Reads the mesh back from `foot.usdz`, logs its size (a scale check), and writes `foot.stl`.
+    private func exportSTL(from folder: ScanFolder) throws {
+        let mesh = try FootMesh.load(from: folder.modelURL)
+        let cm = mesh.size * 100
+        Log.reconstruction.notice("Mesh: \(mesh.vertices.count) vertices, \(mesh.triangleCount) triangles, size \(cm.x, format: .fixed(precision: 1)) × \(cm.y, format: .fixed(precision: 1)) × \(cm.z, format: .fixed(precision: 1)) cm (x × y × z, y up)")
+        modelSize = mesh.size
+        try STLExporter.write(mesh, to: folder.stlURL)
+        Log.files.notice("foot.stl written: \(ScanFolder.sizeInMB(of: folder.stlURL), format: .fixed(precision: 1)) MB at \(folder.stlURL.path, privacy: .public)")
+    }
+
+    private func failProcessing(_ message: String) {
+        reconstructor = nil
+        canRetryProcessing = (folder?.imageCount() ?? 0) >= Self.minimumShots
+        fail(message)
     }
 
     // MARK: - Session events
@@ -190,7 +252,7 @@ final class ScanFlowModel {
         Log.capture.notice("Capture complete: \(folder.imageCount()) images in \(folder.images.path, privacy: .public)")
         // Release the capture session (camera, GPU memory) before reconstruction starts.
         tearDownSession()
-        phase = .reconstructing
+        startReconstruction()
     }
 
     private func sessionFailed(_ error: Error) {
