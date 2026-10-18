@@ -32,6 +32,29 @@ export interface InsoleParams {
 
 export const DEFAULT_INSOLE: InsoleParams = { base: 3, heelCupHeight: 9, heelCupWidth: 14, minThickness: 1.8, reliefDepth: 1.2 }
 
+/** Where the insole features sit along the outline (y in the outline's own frame). The generic 257 mm insole is the default;
+ *  a scan-derived outline passes its own (see `scanInsoleLayout`). */
+export interface InsoleLayout {
+  /** Interior point the polar mesh is built around (the outline must be star-shaped about it). */
+  center: Point
+  /** Arch support ridge: y of its peak and its length scale. */
+  archY: number
+  archSigma: number
+  /** Heel cup rises between y = cupStart (none) and y = cupEnd (full height, toward the heel). */
+  cupStart: number
+  cupEnd: number
+  /** Arch support height, mm; defaults to `archHeightFor(indices.archIndex)`. */
+  archHeight?: number
+}
+
+export const GENERIC_LAYOUT: InsoleLayout = { center: { x: 3, y: 105 }, archY: 88, archSigma: 26, cupStart: 80, cupEnd: 50 }
+
+/** Medial arch ridge shape, 0..1: hugs the medial edge (`medialX` at this y), centered under the navicular. */
+export function archRidge(layout: InsoleLayout, medialX: number, x: number, y: number): number {
+  const inboard = Math.max(0, medialX - x)
+  return Math.exp(-((y - layout.archY) ** 2) / (2 * layout.archSigma ** 2)) * Math.exp(-((inboard - 8) ** 2) / (2 * 15 ** 2))
+}
+
 const RINGS = 40
 const SEGMENTS = 240
 const smoothstep = (a: number, b: number, x: number) => {
@@ -55,8 +78,9 @@ export function buildInsole(
   indices: Indices | null,
   side: "left" | "right" = "left",
   params: InsoleParams = DEFAULT_INSOLE,
+  layout: InsoleLayout = GENERIC_LAYOUT,
 ): InsoleMesh {
-  const archHeight = archHeightFor(indices?.archIndex)
+  const archHeight = layout.archHeight ?? archHeightFor(indices?.archIndex)
   let peakMax = 0
   for (const v of peak) peakMax = Math.max(peakMax, v)
   const edgeCache = new Map<number, number>()
@@ -69,10 +93,9 @@ export function buildInsole(
 
   const heightAt = (x: number, y: number): number => {
     // Medial longitudinal arch: a ridge hugging the medial edge, centered under the navicular.
-    const inboard = Math.max(0, medialAt(y) - x)
-    const arch = archHeight * Math.exp(-((y - 88) ** 2) / (2 * 26 ** 2)) * Math.exp(-((inboard - 8) ** 2) / (2 * 15 ** 2))
+    const arch = archHeight * archRidge(layout, medialAt(y), x, y)
     // Heel cup: a rim rising toward the outline edge over the rear of the foot.
-    const cup = y < 80 ? params.heelCupHeight * smoothstep(80, 50, y) * (1 - smoothstep(0, params.heelCupWidth, edgeDistance(outline, x, y))) ** 2 : 0
+    const cup = y < layout.cupStart ? params.heelCupHeight * smoothstep(layout.cupStart, layout.cupEnd, y) * (1 - smoothstep(0, params.heelCupWidth, edgeDistance(outline, x, y))) ** 2 : 0
     // Relief under hotspots (not under the arch support).
     const load = peakMax > 0 ? sampleGrid(grid, peak, x, y) / peakMax : 0
     const relief = params.reliefDepth * smoothstep(0.55, 0.9, load) * (1 - Math.min(1, arch / 3))
@@ -80,7 +103,7 @@ export function buildInsole(
   }
 
   // Polar mesh around an interior center: ring i is the outline scaled by i / RINGS.
-  const center = { x: 3, y: 105 }
+  const center = layout.center
   const rim = Array.from({ length: SEGMENTS }, (_, j) => {
     const a = (2 * Math.PI * j) / SEGMENTS
     return rayExit(outline, center, Math.cos(a), Math.sin(a))

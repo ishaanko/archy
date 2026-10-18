@@ -74,6 +74,11 @@ button.tile .name { margin-top: auto; }
 .controls select { flex: 1 1 15rem; }
 .controls .btn { flex: 1 1 auto; }
 .tile .seg { margin: .75rem 0 .25rem; }
+.tile.drop { border-color: var(--accent); }
+input[type="number"] { font: inherit; width: 5rem; min-height: 2.25rem; padding: 0 .5rem; color: var(--text); background: var(--card); border: 1px solid var(--border-03); border-radius: var(--radius-md); }
+#est-box { margin-top: 1.25rem; }
+#est-text { margin-top: .5rem; color: var(--text-sec); font-size: .9375rem; }
+#sole-note { margin-top: .75rem; color: var(--text-sec); font-size: .9375rem; }
 .foot { margin-top: 2rem; font-size: .875rem; color: var(--text-tertiary); }
 
 /* App */

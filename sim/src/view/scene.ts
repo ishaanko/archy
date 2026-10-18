@@ -11,6 +11,13 @@ import type { FootPose } from "../core/gait"
 import type { Point } from "../core/types"
 import { FootModel } from "./foot"
 
+/** Camera framing box: center and bounding radius of insole plus posed foot, mm. */
+export interface Frame {
+  center: readonly [number, number, number]
+  radius: number
+}
+const GENERIC_FRAME: Frame = { center: [7, 111, 45], radius: Math.hypot(101, 258, 100) / 2 }
+
 const TERRAIN_MM = 18 // displacement at full-scale pressure
 
 export interface FieldStyle {
@@ -95,10 +102,16 @@ export class InsoleScene {
     this.fitCamera()
   }
 
+  private frame = GENERIC_FRAME
+  /** Frames the camera on a different box (own scan); null returns to the generic insole. */
+  setFrame(frame: Frame | null): void {
+    this.frame = frame ?? GENERIC_FRAME
+    this.fitCamera()
+  }
+
   /** Frames insole plus the posed foot (box in mm, heel/toe lift included) with margin, keeping the current view direction. */
   fitCamera(): void {
-    const center = new Vector3(7, 111, 45)
-    const radius = Math.hypot(101, 258, 100) / 2
+    const center = new Vector3(...this.frame.center), radius = this.frame.radius
     const vHalf = (this.camera.fov * Math.PI) / 360
     const hHalf = Math.atan(Math.tan(vHalf) * this.camera.aspect)
     const dist = (radius * 0.95) / Math.sin(Math.min(vHalf, hHalf))
@@ -180,7 +193,15 @@ export class InsoleScene {
   async setFoot(url: string): Promise<void> {
     let p = this.footCache.get(url)
     if (!p) this.footCache.set(url, (p = FootModel.load(url)))
-    const next = await p
+    this.useFoot(await p)
+  }
+
+  /** Shows the user's own scan (canonical frame) instead of a bundled foot. */
+  setScanFoot(positions: Float32Array, indices: Uint32Array): void {
+    this.useFoot(FootModel.fromScan(positions, indices))
+  }
+
+  private useFoot(next: FootModel): void {
     if (this.foot === next) return
     if (this.foot) this.scene.remove(this.foot.mesh)
     this.foot = next

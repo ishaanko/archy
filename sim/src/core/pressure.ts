@@ -32,9 +32,8 @@ export const DENSE_KERNEL: Kernel = { sigma: 11, fade: 20 }
  *  look flat (midfoot contact appears even where no sensor is loaded), so this one stays close to the dense kernel. */
 export const SPARSE_KERNEL: Kernel = { sigma: 11, fade: 20 }
 
-/** Builds the Gaussian-RBF interpolator (normalized weights with a fade term, so unsensed areas decay to 0). */
-export function createPressureModel(sensors: readonly Point[], outline: readonly Point[], kernel: Kernel = DENSE_KERNEL, cell = 2.5): PressureModel {
-  const SIGMA = kernel.sigma, FADE_DIST = kernel.fade
+/** Regular grid over the outline's bounding box (one cell of margin) with the inside-the-outline mask, plus the list of inside cells. */
+export function makeGrid(outline: readonly Point[], cell = 2.5): { grid: Grid; cellList: number[] } {
   const xs = outline.map((p) => p.x), ys = outline.map((p) => p.y)
   const x0 = Math.min(...xs) - cell, y0 = Math.min(...ys) - cell
   const nx = Math.ceil((Math.max(...xs) + cell - x0) / cell), ny = Math.ceil((Math.max(...ys) + cell - y0) / cell)
@@ -46,6 +45,14 @@ export function createPressureModel(sensors: readonly Point[], outline: readonly
         mask[j * nx + i] = 1
         cellList.push(j * nx + i)
       }
+  return { grid: { nx, ny, cell, x0, y0, mask }, cellList }
+}
+
+/** Builds the Gaussian-RBF interpolator (normalized weights with a fade term, so unsensed areas decay to 0). */
+export function createPressureModel(sensors: readonly Point[], outline: readonly Point[], kernel: Kernel = DENSE_KERNEL, cell = 2.5): PressureModel {
+  const SIGMA = kernel.sigma, FADE_DIST = kernel.fade
+  const { grid, cellList } = makeGrid(outline, cell)
+  const { nx, x0, y0 } = grid
   const cells = Int32Array.from(cellList)
   const n = sensors.length
   const weights = new Float32Array(cells.length * n)
@@ -61,7 +68,7 @@ export function createPressureModel(sensors: readonly Point[], outline: readonly
     }
     for (let s = 0; s < n; s++) weights[k * n + s] /= sum
   })
-  return { grid: { nx, ny, cell, x0, y0, mask }, nSensors: n, cells, weights }
+  return { grid, nSensors: n, cells, weights }
 }
 
 /** Interpolates one sensor reading (length nSensors, starting at `offset`) into `out` (grid-sized, outside cells set to 0). */

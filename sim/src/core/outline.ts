@@ -62,6 +62,16 @@ export function medialEdgeX(poly: readonly Point[], y: number): number {
   return best
 }
 
+/** Smallest x of the polygon on the horizontal line at y (the lateral edge for a canonical foot). */
+export function lateralEdgeX(poly: readonly Point[], y: number): number {
+  let best = Infinity
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length]
+    if (a.y > y !== b.y > y) best = Math.min(best, a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x))
+  }
+  return best
+}
+
 /** Shortest distance from (x, y) to the polygon boundary. */
 export function edgeDistance(poly: readonly Point[], x: number, y: number): number {
   let best = Infinity

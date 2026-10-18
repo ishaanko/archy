@@ -1,4 +1,4 @@
-import { BufferAttribute, Mesh, MeshStandardMaterial, type BufferGeometry } from "three"
+import { BufferAttribute, Mesh, MeshStandardMaterial, BufferGeometry } from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 import type { FootPose } from "../core/gait"
 import { edgeDistance, footOutline, inside } from "../core/outline"
@@ -52,10 +52,19 @@ function outlineField() {
   return { at, minY: Math.min(...o.map((p) => p.y)), maxY: Math.max(...o.map((p) => p.y)), cx: (Math.min(...o.map((p) => p.x)) + Math.max(...o.map((p) => p.x))) / 2 }
 }
 
+/** Own-scan sole band (mm): a standing scan's sole is a hole fill a few mm above the floor. */
+const OWN_SOLE_BAND = 6
+/** Height of the ankle cut that is domed shut on an own scan, mm. */
+const OWN_DOME = 30
+/** Ragged-cut allowance at the top of an own scan's ankle, mm. */
+const OWN_CUT_NOISE = 8
+
 /** Rigid + uniform-scale placement of the scan: p' = k * Rz(theta) p + (dx, dy). */
 /** Placement of the scan: p' = Rz(theta) * diag(kx, ky) p + (dx, dy), then a per-row width warp `fillX` that stretches
  *  each row of the foot between the insole's medial and lateral edges (so the foot fills the outline). */
 interface Placement { kx: number; ky: number; theta: number; dx: number; dy: number; fillX: (x: number, y: number) => number; widthScale: { min: number; max: number } }
+
+const IDENTITY: Placement = { kx: 1, ky: 1, theta: 0, dx: 0, dy: 0, fillX: (x) => x, widthScale: { min: 1, max: 1 } }
 
 /** Registers the scan's silhouette (xy of the vertices up to SILHOUETTE_Z, scan units) to the insole outline, filling it.
  *  1. Length: ky spans heel to toes between the insole ends (HEEL_INSET, TOE_MARGIN), independent of width.
@@ -164,8 +173,15 @@ export class FootModel {
   scale: { x: { min: number; max: number }; y: number } = { x: { min: 1, max: 1 }, y: 1 }
   /** Height of the sole above the insole base plane; set by `seat`. */
   seatZ = 3
+  /** True for the user's own scan: already in the canonical frame and matched to its own insole, so no registration to the generic outline. */
+  private readonly own: boolean
+  private soleBand = SOLE_BAND
+  /** Own scan: vertex indices at the closed top of the ankle dome. */
+  private apex: number[] = []
 
-  private constructor(geo: BufferGeometry) {
+  private constructor(geo: BufferGeometry, own: boolean) {
+    this.own = own
+    if (own) this.soleBand = OWN_SOLE_BAND
     this.geo = geo
     this.rest = (geo.getAttribute("position") as BufferAttribute).array.slice() as Float32Array
     this.fit()
@@ -183,27 +199,31 @@ export class FootModel {
     const footprint: number[] = []
     // Register the foot's outline just above the sole (it flares out over the contact patch), below the malleoli that overhang any insole.
     for (let i = 0; i < r.length; i += 3) if (r[i + 2] < SILHOUETTE_Z) footprint.push(r[i], r[i + 1])
-    const { kx, ky, theta, dx, dy, fillX, widthScale } = register(Float32Array.from(footprint))
+    const { kx, ky, theta, dx, dy, fillX, widthScale } = this.own ? IDENTITY : register(Float32Array.from(footprint))
     this.scale = { x: widthScale, y: ky }
     const kz = Math.sqrt(kx * ky)
     const c = Math.cos(theta), s = Math.sin(theta)
     // Leg stub: pinch xy toward the stub's center and compress z, so the open cut at the top closes into a dome.
     let top = 0, cx = 0, cy = 0, maxZ = 0
+    for (let i = 0; i < r.length; i += 3) maxZ = Math.max(maxZ, r[i + 2])
+    // A scan keeps its real height; only the top of its ankle cut is domed over.
+    const ankleZ = this.own ? maxZ - OWN_DOME : ANKLE_Z, ankleCap = this.own ? OWN_DOME * 0.75 : ANKLE_CAP
     for (let i = 0; i < r.length; i += 3) {
-      maxZ = Math.max(maxZ, r[i + 2])
-      if (r[i + 2] > ANKLE_Z) { cx += r[i]; cy += r[i + 1]; top++ }
+      if (r[i + 2] > ankleZ) { cx += r[i]; cy += r[i + 1]; top++ }
     }
     cx /= top; cy /= top
     const sole: number[] = []
     for (let i = 0; i < r.length; i += 3) {
       let x = r[i], y = r[i + 1], z = r[i + 2]
-      const isSole = z < SOLE_BAND
-      if (z > ANKLE_Z) {
-        const t = (z - ANKLE_Z) / (maxZ - ANKLE_Z)
+      const isSole = z < this.soleBand
+      if (z > ankleZ) {
+        // On a scan the cut is ragged: everything within OWN_CUT_NOISE of the top collapses to the apex so no hole is left.
+        const t = Math.min(1, (z - ankleZ) / (maxZ - (this.own ? OWN_CUT_NOISE : 0) - ankleZ))
         const pinch = Math.cos((t * Math.PI) / 2) ** 0.6
+        if (this.own && t > 0.95) this.apex.push(i / 3)
         x = cx + (x - cx) * pinch
         y = cy + (y - cy) * pinch
-        z = ANKLE_Z + ANKLE_CAP * Math.sin((t * Math.PI) / 2)
+        z = ankleZ + ankleCap * Math.sin((t * Math.PI) / 2)
       }
       const px = x * kx, py = y * ky
       const X = px * c - py * s + dx, Y = px * s + py * c + dy
@@ -227,7 +247,7 @@ export class FootModel {
   seat(heightAt: (x: number, y: number) => number): void {
     const s = this.sole
     const patch = (cx: number, cy: number) => {
-      let need = 0
+      let need = this.own ? -Infinity : 0
       for (let i = 0; i < s.length; i += 3)
         if (Math.hypot(s[i] - cx, s[i + 1] - cy) < SEAT_RADIUS) need = Math.max(need, heightAt(s[i], s[i + 1]) - s[i + 2])
       return need
@@ -238,7 +258,8 @@ export class FootModel {
       return n ? sum / n : this.centerX
     }
     const heelC = this.heelY + SEAT_RADIUS + 4, ball = this.ballY
-    this.seatZ = Math.max(patch(xAt(heelC), heelC), patch(xAt(ball), ball))
+    const seat = Math.max(patch(xAt(heelC), heelC), patch(xAt(ball), ball))
+    this.seatZ = Number.isFinite(seat) ? seat : 0
     this.pose(this.last)
   }
 
@@ -258,7 +279,15 @@ export class FootModel {
     let geo: BufferGeometry | null = null
     gltf.scene.traverse((o) => { if (!geo && (o as Mesh).isMesh) geo = (o as Mesh).geometry })
     if (!geo) throw new Error(`no mesh in ${url}`)
-    return new FootModel(geo)
+    return new FootModel(geo, false)
+  }
+
+  /** The user's own scan (positions + triangle indices, canonical frame, sole on z = 0). */
+  static fromScan(positions: Float32Array, indices: Uint32Array): FootModel {
+    const geo = new BufferGeometry()
+    geo.setAttribute("position", new BufferAttribute(positions.slice(), 3))
+    geo.setIndex(new BufferAttribute(indices, 1))
+    return new FootModel(geo, true)
   }
 
   set opacity(v: number) {
@@ -285,5 +314,10 @@ export class FootModel {
     }
     pos.needsUpdate = true
     this.geo.computeVertexNormals()
+    if (this.own) {
+      // The dome apex is many vertices at one point, whose faces have no area: give them an up normal instead of noise.
+      const nrm = this.geo.getAttribute("normal") as BufferAttribute
+      for (const i of this.apex) nrm.setXYZ(i, 0, 0, 1)
+    }
   }
 }
