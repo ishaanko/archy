@@ -141,13 +141,12 @@ struct ModelViewerView: View {
                           systemImage: isFlat ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
                         .font(.headline)
                         .foregroundStyle(isFlat ? .orange : .green)
-                    Text("Inner arch lifts \(arch.archHeightMM, format: .number.precision(.fractionLength(1))) mm off the floor (flat is under \(Int(FootArchAnalyzer.flatArchHeight * 1000)) mm).")
+                    Text("Inner arch lifts \(arch.archHeightMM, format: .number.precision(.fractionLength(1))) mm off the floor (flat is under \(FootArchAnalyzer.flatArchHeightMM, format: .number.precision(.fractionLength(0))) mm).")
                         .font(.subheadline)
-                    Text("Arch Index \(arch.archIndex, format: .number.precision(.fractionLength(2)))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    // No Arch Index here: on 3D scans it can disagree with the verdict (e.g. 0.29 on a normal foot).
+                    // It's still logged and passed to host apps.
                     if arch.isSoleUneven {
-                        Label("The foot wasn't flat on the floor (tilted \(Int(arch.soleTiltDegrees.rounded()))°), so this is less certain. Rescan standing with weight on the whole foot.",
+                        Label("The foot wasn't flat on the floor (tilted \(arch.soleTiltDegrees, format: .number.precision(.fractionLength(1)))°), so this is less certain. Rescan standing with weight on the whole foot.",
                               systemImage: "exclamationmark.triangle")
                             .font(.caption)
                             .foregroundStyle(.orange)

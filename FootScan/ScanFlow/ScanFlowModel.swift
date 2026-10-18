@@ -66,12 +66,15 @@ final class ScanFlowModel {
 
     /// Embedded scanners show Done and Close buttons that hand control back to the host app.
     var isEmbedded: Bool { onComplete != nil }
+    /// Startup cleanup of `Documents/Scans` has run in this app launch.
+    private static var hasCleanedUp = false
 
     init(onComplete: ((FootScanResult) -> Void)? = nil, onClose: (() -> Void)? = nil) {
         self.onComplete = onComplete
         self.onClose = onClose
         Log.flow.notice("Scanner launched (\(onComplete == nil ? "standalone" : "embedded", privacy: .public)). ObjectCaptureSession.isSupported = \(self.isSupported)")
-        ScanFolder.cleanUp()
+        // No file cleanup here: a host app's FootScannerView can build (and discard) a model on every
+        // redraw, and cleanup deletes empty scan folders, including the folder of a scan in progress.
         #if DEBUG
         openScanFromLaunchArgument()
         #endif
@@ -107,6 +110,12 @@ final class ScanFlowModel {
             return
         }
         guard session == nil, phase == .ready, !isShowingTips, !isClosed else { return }
+
+        // Once per app launch, before any scan folder of this launch exists.
+        if !Self.hasCleanedUp {
+            Self.hasCleanedUp = true
+            ScanFolder.cleanUp()
+        }
 
         // Before the tips and before creating a folder: the session fails right away below 4 GB free.
         let freeBytes = ScanFolder.freeBytes()
@@ -252,7 +261,7 @@ final class ScanFlowModel {
     /// Done on the viewer: hands the finished scan to the host app.
     func complete() {
         guard let onComplete, let folder, let modelSize, phase == .viewing else { return }
-        let result = FootScanResult(folder: folder, size: modelSize, arch: archAnalysis)
+        let result = FootScanResult(folder: folder, size: modelSize, arch: archAnalysis, archError: archError)
         Log.flow.notice("Done: returning \(result.stlURL.path, privacy: .public) (arch: \(result.archType?.rawValue ?? "not measured", privacy: .public)) to the host app")
         onComplete(result)
     }
