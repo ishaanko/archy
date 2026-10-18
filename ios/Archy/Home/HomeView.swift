@@ -133,11 +133,12 @@ private struct HomeContent: View {
 private struct ArchHero: View {
     let assessment: Assessment
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(MeasurementUnit.storageKey) private var unit = MeasurementUnit.localeDefault()
     @State private var side: FootSide = .left
     @State private var risen = false
 
     private var ahi: Double { assessment.ahi(side) ?? 0 }
-    private var dorsumMM: Int { Int(assessment.measurements(for: side).dorsumHeight.rounded()) }
+    private var dorsumHeight: String { unit.format(millimeters: assessment.measurements(for: side).dorsumHeight) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.lg) {
@@ -149,7 +150,7 @@ private struct ArchHero: View {
                 ArchySegmented(selection: $side, options: FootSide.allCases) { $0.title }
                     .frame(width: 148)
             }
-            Text("Your \(side.title.lowercased()) foot stands \(dorsumMM) mm tall at its midpoint. AHI compares that to its heel-to-ball length.")
+            Text("Your \(side.title.lowercased()) foot stands \(dorsumHeight) tall at its midpoint. AHI compares that to its heel-to-ball length.")
                 .foregroundStyle(.inkSecondary)
                 .contentTransition(.numericText())
                 .animation(Motion.snappy.reduced(reduceMotion), value: side)
