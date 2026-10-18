@@ -9,6 +9,8 @@ const ESP32_ADC_MAX = 4095
 /** Boards that don't reset on open never print the header unprompted, so we ask for it after this long.
  *  Waiting first keeps the byte away from an AVR bootloader that is still running after the reset. */
 const HEADER_WAIT_MS = 1500
+/** Until the scale is known, frames are held back for at most this long; a board that never says is taken as 10-bit. */
+const SCALE_WAIT_MS = 3000
 
 /** A serial device plus its calibrator (call `calibrator.tare()` with the foot off, toggle `normalize`). */
 export interface SerialSensor extends LiveSensor {
@@ -36,20 +38,11 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
   if (!port.readable) throw new Error("Port is not readable")
 
   const n = SENSOR_POSITIONS.length
-  let adcMax = AVR_ADC_MAX
+  const calibrator = createCalibrator(AVR_ADC_MAX, n)
   let headerSeen = false
-  let calibrator = createCalibrator(adcMax, n)
   const subs = new Set<(kPa: Float32Array, tMs: number) => void>()
   const t0 = performance.now()
-  let closed = false
-
-  const setAdcMax = (max: number) => {
-    if (max === adcMax) return
-    adcMax = max
-    const prev = calibrator
-    calibrator = createCalibrator(max, n)
-    calibrator.normalize = prev.normalize
-  }
+  let closing: Promise<void> | undefined
 
   // Keep the pipe's promise so disconnect() can wait for it to release port.readable.
   const decoder = new TextDecoderStream()
@@ -69,16 +62,20 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
             const max = Number(line.split(",")[3])
             if (max > 0) {
               headerSeen = true
-              setAdcMax(max)
+              calibrator.adcMax = max
             }
             continue
           }
           const raw = parseFrame(line, n)
           if (!raw) continue
-          // No header yet: a 10-bit board can't read above 1023, so a higher count means a 12-bit ESP32.
-          if (!headerSeen && raw.some((v) => v > AVR_ADC_MAX)) setAdcMax(ESP32_ADC_MAX)
-          const kPa = calibrator.convert(raw)
           const t = performance.now() - t0
+          if (!headerSeen && calibrator.adcMax === AVR_ADC_MAX) {
+            // A 10-bit board can't read above 1023, so a higher count means a 12-bit ESP32.
+            if (raw.some((v) => v > AVR_ADC_MAX)) calibrator.adcMax = ESP32_ADC_MAX
+            // Otherwise a light 12-bit reading would pass as a heavy 10-bit one, so wait for the header.
+            else if (t < SCALE_WAIT_MS) continue
+          }
+          const kPa = calibrator.convert(raw)
           for (const cb of subs) cb(kPa, t)
         }
       }
@@ -87,7 +84,7 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
     }
   })()
 
-  // The firmware re-sends its header on any byte. Best effort: the range check above covers a failed write.
+  // The firmware re-sends its header on any byte. Best effort: frames stop waiting after SCALE_WAIT_MS anyway.
   let headerRequest = Promise.resolve()
   const headerTimer = setTimeout(() => {
     if (headerSeen || !port.writable) return
@@ -95,35 +92,31 @@ export async function connectSerial(side: "left" | "right"): Promise<SerialSenso
     headerRequest = writer.write(new Uint8Array([10])).catch(() => {}).finally(() => writer.releaseLock())
   }, HEADER_WAIT_MS)
 
-  // Calibrator is swapped when the full scale changes, so expose a stable proxy.
-  const proxy: Calibrator = {
-    get normalize() { return calibrator.normalize },
-    set normalize(v) { calibrator.normalize = v },
-    convert: (raw) => calibrator.convert(raw),
-    tare: (f) => calibrator.tare(f),
-    resetMax: () => calibrator.resetMax(),
-  }
-
   return {
     name: "Foot sensor (USB)",
     kind: "serial",
     side,
     sensors: SENSOR_POSITIONS,
     sensorNames: SENSOR_NAMES,
-    calibrator: proxy,
+    calibrator,
     onFrame(cb) {
       subs.add(cb)
       return () => subs.delete(cb)
     },
-    async disconnect() {
-      if (closed) return
-      closed = true
-      clearTimeout(headerTimer)
-      subs.clear()
-      // close() rejects while either stream is locked, so unwind the pipe and any pending write first.
-      await reader.cancel().catch(() => {})
-      await Promise.all([piped, pump, headerRequest])
-      await port.close()
+    // Repeat calls share one teardown, so none of them resolves before the port is closed.
+    disconnect() {
+      closing ??= (async () => {
+        clearTimeout(headerTimer)
+        subs.clear()
+        // close() rejects while either stream is locked, so unwind the pipe and any pending write first.
+        await reader.cancel().catch(() => {})
+        await Promise.all([piped, pump, headerRequest])
+        await port.close().catch((err: unknown) => {
+          // A lost device (unplugged, permission revoked) is already closed, which is all we wanted.
+          if (!(err instanceof DOMException && err.name === "InvalidStateError")) throw err
+        })
+      })()
+      return closing
     },
   }
 }
