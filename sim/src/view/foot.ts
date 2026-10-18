@@ -1,4 +1,4 @@
-import { BufferAttribute, Mesh, MeshStandardMaterial, BufferGeometry } from "three"
+import { BufferAttribute, Matrix4, Mesh, MeshStandardMaterial, BufferGeometry, type Texture } from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 import type { FootPose } from "../core/gait"
 import { edgeDistance, footOutline, inside } from "../core/outline"
@@ -179,16 +179,22 @@ export class FootModel {
   /** Own scan: vertex indices at the closed top of the ankle dome. */
   private apex: number[] = []
 
-  private constructor(geo: BufferGeometry, own: boolean) {
+  /** Photo texture of a realistic scan: drawn opaque and untinted, so theme tones and opacity do not apply. */
+  private readonly map: Texture | null
+
+  private constructor(geo: BufferGeometry, own: boolean, map: Texture | null = null) {
     this.own = own
+    this.map = map
     if (own) this.soleBand = OWN_SOLE_BAND
     this.geo = geo
     this.rest = (geo.getAttribute("position") as BufferAttribute).array.slice() as Float32Array
     this.fit()
-    this.mesh = new Mesh(geo, new MeshStandardMaterial({
-      color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3, roughness: 0.6, metalness: 0, transparent: true, opacity: 0.34, depthWrite: false,
-    }))
-    this.mesh.renderOrder = 2
+    this.mesh = new Mesh(geo, map
+      ? new MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 })
+      : new MeshStandardMaterial({
+        color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3, roughness: 0.6, metalness: 0, transparent: true, opacity: 0.34, depthWrite: false,
+      }))
+    this.mesh.renderOrder = map ? 0 : 2
     this.mesh.frustumCulled = false
     this.pose({ pitch: 0, pivot: 0, lift: 0 })
   }
@@ -267,6 +273,7 @@ export class FootModel {
 
   /** Material tones for the page theme: pale glass on dark, soft ink on light. */
   setTone(dark: boolean): void {
+    if (this.map) return
     const m = this.mesh.material as MeshStandardMaterial
     m.color.set(dark ? 0xffffff : 0x2e2b22)
     m.emissive.set(dark ? 0xffffff : 0x000000)
@@ -288,6 +295,11 @@ export class FootModel {
     geo.setAttribute("position", new BufferAttribute(positions.slice(), 3))
     geo.setIndex(new BufferAttribute(indices, 1))
     return new FootModel(geo, true)
+  }
+
+  /** A realistic scan: textured geometry (position, uv, index) already in the canonical frame, plus its photo texture. */
+  static fromTextured(geo: BufferGeometry, map: Texture): FootModel {
+    return new FootModel(geo, true, map)
   }
 
   set opacity(v: number) {
@@ -320,4 +332,32 @@ export class FootModel {
       for (const i of this.apex) nrm.setXYZ(i, 0, 0, 1)
     }
   }
+}
+
+/** Loads a realistic scan (GLB in the file coordinates of the matching STL, see scripts/convert_usdz.py) and moves it into
+ *  the canonical frame with that STL's `ScanResult.toCanonical`. Winding is flipped when the result faces inward (a
+ *  mirrored right foot), so it shades like the plain scan. */
+export async function loadRealScan(url: string, toCanonical: number[]): Promise<{ geo: BufferGeometry; map: Texture }> {
+  const gltf = await new GLTFLoader().loadAsync(url)
+  const meshes: Mesh[] = []
+  gltf.scene.traverse((o) => { if ((o as Mesh).isMesh) meshes.push(o as Mesh) })
+  const mesh = meshes[0]
+  const map = mesh ? (mesh.material as MeshStandardMaterial).map : null
+  if (!mesh || !map) throw new Error(`no textured mesh in ${url}`)
+  mesh.updateWorldMatrix(true, false)
+  const geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld).applyMatrix4(new Matrix4().fromArray(toCanonical))
+  geo.deleteAttribute("normal")
+  const p = geo.getAttribute("position") as BufferAttribute, index = geo.getIndex()!
+  let volume = 0
+  for (let t = 0; t < index.count; t += 3) {
+    const [a, b, c] = [index.getX(t), index.getX(t + 1), index.getX(t + 2)]
+    const [ax, ay, az, bx, by, bz, cx, cy, cz] = [p.getX(a), p.getY(a), p.getZ(a), p.getX(b), p.getY(b), p.getZ(b), p.getX(c), p.getY(c), p.getZ(c)]
+    volume += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)
+  }
+  if (volume < 0) for (let t = 0; t < index.count; t += 3) {
+    const b = index.getX(t + 1)
+    index.setX(t + 1, index.getX(t + 2))
+    index.setX(t + 2, b)
+  }
+  return { geo, map }
 }

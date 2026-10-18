@@ -80,6 +80,10 @@ input[type="number"] { font: inherit; width: 5rem; min-height: 2.25rem; padding:
 #est-box { margin-top: 1.25rem; }
 #est-text { margin-top: .5rem; color: var(--text-sec); font-size: .9375rem; }
 #sole-note { margin-top: .75rem; color: var(--text-sec); font-size: .9375rem; }
+.more { margin-top: 3rem; }
+.section-title { font: 500 2rem/1.15 var(--font-display); letter-spacing: -.025em; margin-bottom: 1rem; }
+a.btn { text-decoration: none; }
+.controls .scan-pick { flex: 1 1 0; padding: 0 .5rem; }
 .foot { margin-top: 2rem; font-size: .875rem; color: var(--text-tertiary); }
 
 /* App */

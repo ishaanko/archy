@@ -20,6 +20,9 @@ export interface ScanResult {
   side: "left" | "right"
   /** The file's units were scaled by this to get mm (1 = mm, 1000 = meters, 10 = cm). */
   unitScale: number
+  /** Affine map from the file's coordinates to the canonical frame, 4x4 column-major (three.js Matrix4 order). Negative
+   *  determinant for a mirrored right foot. Places other exports of the same capture (the textured USDZ) on this scan. */
+  toCanonical: number[]
   /** mm */
   length: number
   ballWidth: number
@@ -43,7 +46,8 @@ export interface ScanResult {
   footprint: Indices | null
   /** Insole outline: the foot silhouette near the floor, smoothed and offset outward, counter-clockwise. */
   outline: Point[]
-  /** Heel/toe call: z-spread of the two ends (confidence). Side call: medial minus lateral edge height, mm. */
+  /** Heel/toe call: z-spread of the two ends (confidence). Side call: toe-tip lean toward the medial side, mm (or the
+   *  medial minus lateral edge height when the toes are too centered to call). */
   checks: { heelToeRatio: number; sideMargin: number; ballWiderThanHeel: boolean }
 }
 
@@ -149,6 +153,39 @@ function weld(soup: Float32Array, scale: number): { v: Float64Array; f: Uint32Ar
     if (tri[0] !== tri[1] && tri[1] !== tri[2] && tri[0] !== tri[2]) f.push(tri[0], tri[1], tri[2])
   }
   return { v: Float64Array.from(v), f: Uint32Array.from(f) }
+}
+
+/** Least-squares affine map taking `src` points (file units times `unitScale`) to `dst`, as a column-major 4x4 acting
+ *  on unscaled file coordinates. Exact here, since the canonical frame is an affine image of the file. */
+function fitAffine(src: Float64Array, dst: Float32Array, unitScale: number): number[] {
+  // Normal equations (A^T A) w = A^T b with rows [x, y, z, 1], solved once per output axis.
+  const ata = Array.from({ length: 4 }, () => [0, 0, 0, 0]), atb = Array.from({ length: 4 }, () => [0, 0, 0])
+  for (let i = 0; i < src.length; i += 3) {
+    const row = [src[i], src[i + 1], src[i + 2], 1]
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) ata[r][c] += row[r] * row[c]
+      for (let k = 0; k < 3; k++) atb[r][k] += row[r] * dst[i + k]
+    }
+  }
+  // Gauss-Jordan with partial pivoting on [ata | atb].
+  const m = ata.map((r, i) => [...r, ...atb[i]])
+  for (let c = 0; c < 4; c++) {
+    const piv = m.slice(c).reduce((best, r, i) => (Math.abs(r[c]) > Math.abs(m[best][c]) ? c + i : best), c)
+    ;[m[c], m[piv]] = [m[piv], m[c]]
+    for (let r = 0; r < 4; r++) {
+      if (r === c) continue
+      const f = m[r][c] / m[c][c]
+      for (let k = c; k < 7; k++) m[r][k] -= f * m[c][k]
+    }
+  }
+  const w = (r: number, k: number) => m[r][4 + k] / m[r][r] // weight of input r on output axis k
+  // Column-major: column j holds input j's contribution to (x, y, z); the linear part also absorbs the unit scale.
+  return [
+    w(0, 0) * unitScale, w(0, 1) * unitScale, w(0, 2) * unitScale, 0,
+    w(1, 0) * unitScale, w(1, 1) * unitScale, w(1, 2) * unitScale, 0,
+    w(2, 0) * unitScale, w(2, 1) * unitScale, w(2, 2) * unitScale, 0,
+    w(3, 0), w(3, 1), w(3, 2), 1,
+  ]
 }
 
 // ---------- floor ----------
@@ -314,8 +351,15 @@ function orient(v: Float64Array, up: V3): Oriented {
   const L = s1 - s0
   for (let i = 0; i < n; i++) s[i] -= s0
 
-  // Medial side: the arch edge rises off the floor, the lateral edge stays down. Compare the lowest vertex
-  // within 8 mm of each outer edge, per 2 mm row through the midfoot (35-60% of the length).
+  // Medial side, first call: the toe tips lean toward the big toe, which is medial. On 38 dataset scans this leaned 9-28 mm
+  // the right way; it also holds for standing phone scans, whose hole-filled sole hides the arch edge used below.
+  const mid = extent((i) => Math.abs(s[i] - 0.5 * L) < 20 && z[i] < FOOT_Z, t)
+  let tip = 0, k = 0
+  for (let i = 0; i < n; i++) if (s[i] > 0.94 * L && z[i] < FOOT_Z) (tip += t[i], k++)
+  const toeLean = k ? tip / k - (mid[0] + mid[1]) / 2 : 0
+
+  // Fallback when the toes are centered: the arch edge rises off the floor, the lateral edge stays down. Compare the lowest
+  // vertex within 8 mm of each outer edge, per 2 mm row through the midfoot (35-60% of the length).
   const rows = new Map<number, number[]>()
   for (let i = 0; i < n; i++) {
     const r = Math.floor(s[i] / 2)
@@ -332,14 +376,8 @@ function orient(v: Float64Array, up: V3): Oriented {
     }
     edgeP.push(hp); edgeN.push(hn)
   }
-  let sideMargin = median(edgeP) - median(edgeN) // > 0: the +t side is raised, i.e. medial
-  if (Math.abs(sideMargin) < 2) {
-    // Too close to call from the arch: the toe tips lean toward the big toe, which is medial.
-    const mid = extent((i) => Math.abs(s[i] - 0.5 * L) < 20 && z[i] < FOOT_Z, t)
-    let tip = 0, k = 0
-    for (let i = 0; i < n; i++) if (s[i] > 0.94 * L && z[i] < FOOT_Z) (tip += t[i], k++)
-    sideMargin = k ? tip / k - (mid[0] + mid[1]) / 2 : sideMargin
-  }
+  // > 0: the +t side is medial
+  const sideMargin = Math.abs(toeLean) >= 3 ? toeLean : median(edgeP) - median(edgeN)
   const medialPositive = sideMargin > 0
   const x = new Float64Array(n)
   // In a right-handed (x, y, z) frame x = y x z = t, so a left foot (medial on +x) keeps t; a right foot is mirrored.
@@ -588,7 +626,7 @@ export function analyzeScan(soup: Float32Array): ScanResult {
   const footprint = computeIndices({ nx, ny, cell: 1, x0, y0, mask: new Uint8Array(0) }, contact)
 
   return {
-    mesh, side: o.side, unitScale, length, ballWidth: ball, heelWidth: heel, truncLength: trunc, dorsumHeight: dorsum, ahi,
+    mesh, side: o.side, unitScale, toCanonical: fitAffine(v, positions, unitScale), length, ballWidth: ball, heelWidth: heel, truncLength: trunc, dorsumHeight: dorsum, ahi,
     ahiClass: ahi <= AHI_LOWER ? "lower" : ahi >= AHI_HIGHER ? "higher" : "typical",
     medialArchHeight: profile.height, medialArchY: profile.peakY, soleObserved, fillShare, footprint,
     outline: silhouetteOutline(mesh, length), checks: o.checks,

@@ -8,7 +8,7 @@ import { StepTracker, copY } from "./core/live"
 import { footOutline } from "./core/outline"
 import { copTrajectory, createPressureModel, frameMaps, interpolate, peakMap, sampleGrid, SPARSE_KERNEL, type Grid, type PressureModel } from "./core/pressure"
 import { analyzeScan, AHI_HIGHER, AHI_LOWER, parseScanFile, type ScanResult } from "./core/scan"
-import { estimateScan, scanInsoleLayout, type ScanEstimate } from "./core/scanEstimate"
+import { estimateScan, SCAN_INSOLE, scanInsoleLayout, type ScanEstimate } from "./core/scanEstimate"
 import { toBinaryStl } from "./core/stl"
 import { synthTrial } from "./core/synth"
 import { differenceMap, templateOnGrid } from "./core/template"
@@ -17,6 +17,7 @@ import { DISCLAIMER, readAhi, readArch } from "./core/verdict"
 import { loadCadwalk, loadFeet, loadInsoleData, loadTemplate, type CadStep } from "./data"
 import { connectDemoDevice, connectSerial, isSerialSupported, SENSOR_NAMES, SENSOR_POSITIONS } from "./hardware"
 import type { LiveSensor } from "./hardware/types"
+import { loadRealScan } from "./view/foot"
 import { InsoleScene } from "./view/scene"
 
 /** Element lookup that degrades instead of throwing: a missing id logs a warning and returns a detached stand-in. */
@@ -61,6 +62,8 @@ interface Session {
   variants?: Record<"plate" | "kit", { trial: Trial; analysis: Analysis }>
   /** The user's own scan: measurements, custom insole and the estimated pressure (see core/scanEstimate.ts). */
   own?: OwnScan
+  /** Textured version of a bundled scan, for the Realistic toggle. */
+  realUrl?: string
 }
 
 interface OwnScan {
@@ -136,12 +139,13 @@ function plateVariants(step: CadStep): NonNullable<Session["variants"]> {
   return { plate: { trial: plate, analysis: plateAnalysis }, kit: { trial: kit, analysis: kitAnalysis } }
 }
 
-/** Analysis of one estimated walk on the scan's own grid; "with insole" keeps the "before" color scale so the drop is visible. */
-function ownAnalysis(est: ScanEstimate, walk: ScanEstimate["before"], peakMax?: number): Analysis {
+/** Analysis of one estimated walk on the scan's own grid, standing on `mesh`; "with insole" keeps the "before" color scale so
+ *  the drop is visible. */
+function ownAnalysis(est: ScanEstimate, walk: ScanEstimate["before"], mesh: InsoleMesh, peakMax?: number): Analysis {
   const model: PressureModel = { grid: est.grid, nSensors: 0, cells: est.cells, weights: new Float32Array(0) }
   const diff = differenceMap(est.grid, walk.peak, est.reference)
   return {
-    model, maps: walk.maps, peak: walk.peak, diff, cop: copTrajectory(model, walk.maps, est.nFrames), indices: null, mesh: est.mesh,
+    model, maps: walk.maps, peak: walk.peak, diff, cop: copTrajectory(model, walk.maps, est.nFrames), indices: null, mesh,
     peakMax: peakMax ?? walk.peak.reduce((m, v) => Math.max(m, v), 1),
     diffMax: diff.reduce((m, v) => Math.max(m, Math.abs(v)), 1e-9),
   }
@@ -149,8 +153,9 @@ function ownAnalysis(est: ScanEstimate, walk: ScanEstimate["before"], peakMax?: 
 
 function buildOwn(result: ScanResult, weight: number, mode: "before" | "with"): OwnScan {
   const est = estimateScan(result, template, weight)
-  const before = ownAnalysis(est, est.before)
-  return { result, est, weight, mode, analyses: { before, with: ownAnalysis(est, est.withInsole, before.peakMax) } }
+  // "Before" stands on a flat insole, "with" on the custom one, so the toggle changes the view and not just the colors.
+  const before = ownAnalysis(est, est.before, est.flatMesh)
+  return { result, est, weight, mode, analyses: { before, with: ownAnalysis(est, est.withInsole, est.mesh, before.peakMax) } }
 }
 
 // UI state
@@ -197,7 +202,7 @@ const el = {
   surface: $<HTMLSelectElement>("surface"), cmap: $<HTMLSelectElement>("cmap"), patterns: $<HTMLInputElement>("patterns"),
   sensors: $<HTMLInputElement>("sensors"), cop: $<HTMLInputElement>("cop"), legendBar: $("legend-bar"), live: $("live"),
   estBox: $("est-box"), estText: $("est-text"), soleNote: $("sole-note"), weightBox: $("weight-box"), weight: $<HTMLInputElement>("weight"),
-  scanFile: $<HTMLInputElement>("scan-file"), scanError: $("scan-error"),
+  scanFile: $<HTMLInputElement>("scan-file"), scanError: $("scan-error"), realBox: $("real-box"), realistic: $<HTMLInputElement>("realistic"),
   recorded: $<HTMLSelectElement>("recorded"), plateStep: $<HTMLSelectElement>("plate-step"), variantBox: $("variant-box"), connectError: $("connect-error"),
 }
 const sections: Record<Screen, HTMLElement> = { watch: $("s-watch"), result: $("s-result"), insole: $("s-insole") }
@@ -246,7 +251,8 @@ function draw(): void {
   const diverging = mode === "diff"
   const plain = screen === "insole"
   if (rebuild) {
-    view.setInsole(a.mesh, model.grid, session.trial?.sensors ?? session.device!.sensors)
+    // The Insole screen always shows the custom insole, even from the "before" view.
+    view.setInsole(session.own && plain ? session.own.est.mesh : a.mesh, model.grid, session.trial?.sensors ?? session.device!.sensors)
     rebuild = false
   }
   view.setPlain(plain)
@@ -366,7 +372,7 @@ function renderOwnResults({ result: r, est, weight, mode }: OwnScan): void {
   el.soleNote.hidden = r.soleObserved
   el.soleNote.textContent = "Your scan was taken standing, so we measured your arch from the side. For the best insole, scan while seated with your sole visible."
   el.support.textContent = `Extra arch support: ${Math.round(est.mesh.archHeight)} mm`
-  el.insoleMore.textContent = `Made to fit your scan, ${Math.round(r.length)} mm long. Cushioned heel cup ${DEFAULT_INSOLE.heelCupHeight} mm. Softer spots under the estimated pressure hotspots. Printed in recycled TPU. Estimated peak pressure about ${est.peakDropPercent}% lower with it.`
+  el.insoleMore.textContent = `Made to fit your scan, ${Math.round(r.length)} mm long. Deep heel cup ${SCAN_INSOLE.heelCupHeight} mm. Softer spots under the estimated pressure hotspots. Printed in recycled TPU. Estimated peak pressure about ${est.peakDropPercent}% lower with it.`
   el.estText.textContent = mode === "with" ? `Estimated peak pressure about ${est.peakDropPercent}% lower.` : `Estimated at ${weight} kg, not measured.`
 
   const row = (name: string, value: string, cls: string, rule: string) => `<tr><td>${name}</td><td>${value}</td><td>${cls}</td></tr><tr><td colspan="3" class="rule">${rule}</td></tr>`
@@ -398,6 +404,7 @@ function setScreen(next: Screen): void {
   navButtons.forEach((b) => (b.dataset.screen === next ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current")))
   el.mapmode.value = next === "watch" ? "frame" : "peak"
   el.details.hidden = next === "insole"
+  if (session?.own) rebuild = true
   dirty = true
   invalidate()
 }
@@ -425,6 +432,8 @@ function enter(s: Session, model?: PressureModel): void {
   el.scrub.hidden = s.device !== null
   el.bars.innerHTML = el.values.innerHTML = ""
   el.showFoot.checked = true
+  el.realBox.hidden = !s.realUrl
+  el.realistic.checked = false
   el.variantBox.hidden = !s.variants
   const plateRadio = document.querySelector<HTMLInputElement>('input[name="variant"][value="plate"]')
   if (plateRadio) plateRadio.checked = true
@@ -466,20 +475,42 @@ function enter(s: Session, model?: PressureModel): void {
 }
 
 /** Runs the same pipeline for an upload and the bundled example: parse, orient, measure, estimate, then the usual flow. */
-function startScan(result: ScanResult, title: string, fileLabel: string): void {
+function startScan(result: ScanResult, title: string, fileLabel: string, realUrl?: string): void {
   const own = buildOwn(result, Number(el.weight.value) || 70, "before")
   const walk = own.est
   const trial: Trial = { id: "own-scan", label: title, source: "synthetic", side: "left", fs: walk.fs, nFrames: walk.nFrames, sensors: walk.spots, frames: new Float32Array(0) }
-  enter({ title, side: result.side, footKey: "typical", trial, scan: fileLabel, device: null, own })
+  enter({ title, side: result.side, footKey: "typical", trial, scan: fileLabel, device: null, own, realUrl })
 }
 
-async function loadScan(name: string, buf: ArrayBuffer, title: string): Promise<void> {
+/** Realistic scans by url, loaded on first use (each bundled scan has one transform, so the url is the key). */
+const realScans = new Map<string, ReturnType<typeof loadRealScan>>()
+
+/** Swaps the scan foot between the plain mesh and its textured version. */
+async function showRealistic(on: boolean): Promise<void> {
+  const s = session, own = s?.own
+  if (!s || !own) return
+  const { positions, indices } = own.result.mesh
+  if (!on || !s.realUrl) return void (view.setScanFoot(positions, indices), invalidate())
+  let p = realScans.get(s.realUrl)
+  if (!p) realScans.set(s.realUrl, (p = loadRealScan(s.realUrl, own.result.toCanonical)))
+  try {
+    const real = await p
+    // The user may have left or switched off while it loaded.
+    if (session === s && el.realistic.checked) view.setScanFoot(positions, indices, real)
+  } catch (e) {
+    console.warn(e)
+    el.realistic.checked = false
+  }
+  invalidate()
+}
+
+async function loadScan(name: string, buf: ArrayBuffer, title: string, realUrl?: string): Promise<void> {
   el.scanError.hidden = false
   el.scanError.classList.remove("err")
   el.scanError.textContent = "Reading your scan..."
   await new Promise((r) => setTimeout(r, 30)) // let the message paint before the synchronous measuring
   try {
-    startScan(analyzeScan(parseScanFile(name, buf)), title, name)
+    startScan(analyzeScan(parseScanFile(name, buf)), title, name, realUrl)
     el.scanError.hidden = true
   } catch (e) {
     el.scanError.classList.add("err")
@@ -487,11 +518,11 @@ async function loadScan(name: string, buf: ArrayBuffer, title: string): Promise<
   }
 }
 
-async function loadScanUrl(url: string, title: string): Promise<void> {
+async function loadScanUrl(url: string, title: string, realUrl?: string): Promise<void> {
   try {
     const res = await fetch(url)
     if (!res.ok) throw new Error("Could not load the scan.")
-    await loadScan(url.split("?")[0], await res.arrayBuffer(), title)
+    await loadScan(url.split("?")[0], await res.arrayBuffer(), title, realUrl)
   } catch (e) {
     el.scanError.hidden = false
     el.scanError.classList.add("err")
@@ -499,9 +530,10 @@ async function loadScanUrl(url: string, title: string): Promise<void> {
   }
 }
 /** Bundled iPhone LiDAR scans, shared with permission (public/models/scan-<key>.stl). */
-const SCANS = { ishaan: "Ishaan's foot", prakhar: "Prakhar's foot" } as const
+const SCANS = { ishaan: "Ishaan's foot", prakhar: "Prakhar's foot", pranav: "Pranav's foot" } as const
 type ScanKey = keyof typeof SCANS
-const loadExampleScan = (key: ScanKey) => loadScanUrl(`${import.meta.env.BASE_URL}models/scan-${key}.stl`, SCANS[key])
+const loadExampleScan = (key: ScanKey) =>
+  loadScanUrl(`${import.meta.env.BASE_URL}models/scan-${key}.stl`, SCANS[key], `${import.meta.env.BASE_URL}models/scan-${key}-real.glb`)
 
 function startExample(n: string): void {
   const ex = EXAMPLES.find((e) => e.n === n)
@@ -553,7 +585,8 @@ function startLive(device: LiveSensor, footKey: FootKey): void {
 }
 
 const selectedSide = () => (document.querySelector<HTMLInputElement>('input[name="side"]:checked')?.value ?? "left") as "left" | "right"
-const demoFoot = () => $<HTMLSelectElement>("demo-foot").value as FootType
+// The demo sensor walks like a flatter arch, the case the screen is for; ?live=demo&foot= picks another.
+const demoFoot = (): FootType => "flat"
 const footKeyFor = (t: FootType): FootKey => EXAMPLES.find((e) => e.type === t)!.key
 
 document.querySelectorAll<HTMLButtonElement>("[data-example]").forEach((b) => b.addEventListener("click", () => startExample(b.dataset.example!)))
@@ -589,9 +622,10 @@ document.querySelectorAll<HTMLInputElement>('input[name="est"]').forEach((r) =>
     session.own.mode = r.value as "before" | "with"
     a = session.own.analyses[session.own.mode]
     renderResults()
-    dirty = true
+    rebuild = dirty = true
     invalidate()
   }))
+el.realistic.addEventListener("change", () => void showRealistic(el.realistic.checked))
 el.weight.addEventListener("change", () => {
   const own = session?.own
   if (!session || !own) return
@@ -630,7 +664,7 @@ el.download.addEventListener("click", () => {
   if (!session || !a) return
   const own = session.own
   const mesh = own
-    ? buildInsole(own.result.outline, own.est.grid, own.est.before.peak, null, session.side, undefined, scanInsoleLayout(own.result))
+    ? buildInsole(own.result.outline, own.est.grid, own.est.before.peak, null, session.side, SCAN_INSOLE, scanInsoleLayout(own.result))
     : insoleFromPeak(outline, a.model.grid, a.peak, session.side).mesh
   const url = URL.createObjectURL(new Blob([toBinaryStl(mesh)], { type: "model/stl" }))
   const link = Object.assign(document.createElement("a"), { href: url, download: own ? "archy-insole-my-scan.stl" : `insole-${session.title.toLowerCase().replace(/\W+/g, "-")}.stl` })
@@ -671,7 +705,7 @@ else if (q.get("live") === "demo") {
   const t = (q.get("foot") ?? "normal") as FootType
   startLive(connectDemoDevice((q.get("side") as "left" | "right") ?? "left", t), footKeyFor(t))
 }
-// ?scan=ishaan|prakhar loads a bundled scan (example = ishaan, the original link); in dev builds ?scan=<url> loads any STL.
+// ?scan=ishaan|prakhar|pranav loads a bundled scan (example = ishaan, the original link); in dev builds ?scan=<url> loads any STL.
 const scanParam = q.get("scan") === "example" ? "ishaan" : q.get("scan")
 if (scanParam && scanParam in SCANS) await loadExampleScan(scanParam as ScanKey)
 else if (scanParam && import.meta.env.DEV) await loadScanUrl(scanParam, "Your foot scan")
@@ -679,6 +713,10 @@ if (session) {
   if (q.has("est") && currentOwn()) {
     const r = document.querySelector<HTMLInputElement>(`input[name="est"][value="${q.get("est")}"]`)
     if (r) { r.checked = true; r.dispatchEvent(new Event("change")) }
+  }
+  if (q.get("real") === "1" && currentOwn()) {
+    el.realistic.checked = true
+    await showRealistic(true)
   }
   if (q.has("frame")) {
     position = Number(q.get("frame"))
