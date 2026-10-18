@@ -89,7 +89,7 @@ struct ScanTab: View {
             reconstruction
         case .viewing:
             if let folder = model.folder {
-                ModelViewerView(source: .scan(folder, size: model.modelSize), onClose: { model.reset() })
+                ModelViewerView(source: .scan(folder, size: model.modelSize, arch: model.archAnalysis), onClose: { model.reset() })
             }
         case .failed:
             failure

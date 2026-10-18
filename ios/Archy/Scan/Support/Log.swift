@@ -11,5 +11,6 @@ nonisolated enum Log {
     static let capture = Logger(subsystem: "archy", category: "Capture")
     static let reconstruction = Logger(subsystem: "archy", category: "Reconstruction")
     static let viewer = Logger(subsystem: "archy", category: "Viewer")
+    static let analysis = Logger(subsystem: "archy", category: "Analysis")
     static let files = Logger(subsystem: "archy", category: "Files")
 }

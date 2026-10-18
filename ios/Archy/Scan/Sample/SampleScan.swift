@@ -11,6 +11,8 @@ struct SampleScan {
     let stlURL: URL
     /// Welded triangles in meters, Y up, like a reconstructed scan.
     let mesh: FootMesh
+    /// The arch read from the sample's sole, like a real scan; nil if the footprint couldn't be measured.
+    let arch: FootArchAnalysis?
     /// Smooth per-vertex normals for `mesh`.
     private let normals: [SIMD3<Float>]
 
@@ -76,7 +78,8 @@ struct SampleScan {
         }
         normals = normals.map { simd_length($0) > 0 ? simd_normalize($0) : SIMD3(0, 1, 0) }
 
-        return SampleScan(stlURL: url, mesh: FootMesh(vertices: vertices, indices: indices), normals: normals)
+        let mesh = FootMesh(vertices: vertices, indices: indices)
+        return SampleScan(stlURL: url, mesh: mesh, arch: try? FootArchAnalyzer.analyze(mesh), normals: normals)
     }
 
     /// The foot as a RealityKit entity, in meters.
