@@ -24,23 +24,18 @@ struct CaptureControls: View {
     private let minimumBannerSeconds: TimeInterval = 2
 
     var body: some View {
+        // Text sits at the top: the middle and bottom of the feed are where the foot, the box,
+        // and Apple's coverage ring and point cloud are drawn.
         VStack(spacing: 12) {
             topBar
+            if !model.isPassComplete {
+                instructionCard
+            }
             warningBanner
             Spacer()
             if model.isPassComplete {
                 lapCompleteCard
             } else {
-                if model.phase == .detecting {
-                    BoxTrimDiagram()
-                        .frame(maxWidth: 200)
-                }
-                Text(FootGuidance.instruction(for: model.phase, lap: model.passNumber,
-                                              detectionFailed: model.detectionFailed))
-                    .font(.callout.bold())
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 360)
                 bottomButtons
             }
         }
@@ -54,6 +49,25 @@ struct CaptureControls: View {
     }
 
     // MARK: - Pieces
+
+    private var instructionCard: some View {
+        HStack(spacing: 12) {
+            if model.phase == .detecting {
+                BoxTrimDiagram()
+                    .frame(maxWidth: 110)
+            }
+            Text(FootGuidance.instruction(for: model.phase, lap: model.passNumber,
+                                          detectionFailed: model.detectionFailed))
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+                .multilineTextAlignment(model.phase == .detecting ? .leading : .center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: 380)
+        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
+    }
 
     private var topBar: some View {
         HStack {

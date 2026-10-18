@@ -13,8 +13,17 @@ struct FootScanApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "FootScanEmbedDemo") {
+                EmbeddingDemoView()
+            } else {
+                ScanRootView()
+                    .environment(model)
+            }
+            #else
             ScanRootView()
                 .environment(model)
+            #endif
         }
     }
 }

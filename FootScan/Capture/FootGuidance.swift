@@ -21,14 +21,14 @@ enum FootGuidance {
         switch phase {
         case .ready:
             detectionFailed
-                ? "Can't find the foot. Step a little closer, keep the whole foot in view, and put the dot on top of it."
-                : "Hold the phone about 50 cm from the foot, tilted down. Put the dot on top of the foot, then tap Continue."
+                ? "Can't find the foot. Step closer and put the dot on top of it."
+                : "About 50 cm away, tilted down. Dot on top of the foot, then Continue."
         case .detecting:
-            "Check the box covers the whole foot, toes to heel. Drag its top edge down to the ankle bone, then tap Start Capture."
+            "Box should cover toes to heel. Drag its top down to the ankle bone."
         case .capturing:
             lap == 1
-                ? "Walk slowly all the way around, phone at knee height. The ring fills in as you go; gaps show where you still need to go."
-                : "Go around again with the phone low, near the floor. Take extra time on the inner side of the arch."
+                ? "Walk slowly around at knee height until the ring is full."
+                : "Go around again, phone near the floor. Slow down at the inner arch."
         case .finishing:
             "Saving photos…"
         default:

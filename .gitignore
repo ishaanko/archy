@@ -14,3 +14,6 @@ reference/
 .claude/
 .cursor/
 CLAUDE.md
+
+# Local integration notes
+INTEGRATION.md

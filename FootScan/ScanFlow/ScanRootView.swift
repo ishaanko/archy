@@ -19,10 +19,25 @@ struct ScanRootView: View {
         ZStack {
             screen
         }
+        .overlay(alignment: .topLeading) {
+            if showsCloseButton {
+                Button("Close", systemImage: "xmark") { model.close() }
+                    .labelStyle(.iconOnly)
+                    .font(.title2)
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.circle)
+                    .tint(.primary)
+                    .padding()
+            }
+        }
         .onAppear {
             // Keep the screen awake during capture and processing.
             UIApplication.shared.isIdleTimerDisabled = true
             model.begin()
+        }
+        .onDisappear {
+            // Matters when embedded: the host app's screens should auto-lock as usual.
+            UIApplication.shared.isIdleTimerDisabled = false
         }
         // Here rather than on the capture screen: on the first scan it shows before the camera exists.
         // The camera starts or resumes in onDismiss, after the sheet has finished animating away.
@@ -33,6 +48,16 @@ struct ScanRootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             // iOS may suspend processing in the background; this shows up in the logs if it happens.
             Log.flow.notice("App scene phase \(String(describing: newPhase), privacy: .public) during \(String(describing: model.phase), privacy: .public)")
+        }
+    }
+
+    /// Embedded only: a way back to the host app wherever there's no other exit. Mid-scan,
+    /// Cancel returns to `.ready`; processing's Cancel leads to `.failed`; the viewer has Done.
+    private var showsCloseButton: Bool {
+        guard model.isEmbedded, !model.isShowingTips else { return false }
+        switch model.phase {
+        case .ready, .failed: return true
+        default: return false
         }
     }
 

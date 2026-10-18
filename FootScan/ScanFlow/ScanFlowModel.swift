@@ -43,6 +43,9 @@ final class ScanFlowModel {
     private(set) var reconstructor: Reconstructor?
     /// Bounding-box size of the finished model in meters (width, height, depth).
     private(set) var modelSize: SIMD3<Float>?
+    /// Flat vs. normal arch for the finished model; nil if it couldn't be measured (see `archError`).
+    private(set) var archAnalysis: FootArchAnalysis?
+    private(set) var archError: String?
     /// The last failure happened while processing saved photos, so they can be processed again.
     private(set) var canRetryProcessing = false
 
@@ -55,8 +58,19 @@ final class ScanFlowModel {
 
     private var sessionTasks: [Task<Void, Never>] = []
 
-    init() {
-        Log.flow.notice("App launched. ObjectCaptureSession.isSupported = \(self.isSupported)")
+    /// Set when another app embeds the scanner through `FootScannerView`; nil in the standalone app.
+    private let onComplete: ((FootScanResult) -> Void)?
+    private let onClose: (() -> Void)?
+    /// The host app closed the scanner; nothing may start a new scan after this.
+    private var isClosed = false
+
+    /// Embedded scanners show Done and Close buttons that hand control back to the host app.
+    var isEmbedded: Bool { onComplete != nil }
+
+    init(onComplete: ((FootScanResult) -> Void)? = nil, onClose: (() -> Void)? = nil) {
+        self.onComplete = onComplete
+        self.onClose = onClose
+        Log.flow.notice("Scanner launched (\(onComplete == nil ? "standalone" : "embedded", privacy: .public)). ObjectCaptureSession.isSupported = \(self.isSupported)")
         ScanFolder.cleanUp()
         #if DEBUG
         openScanFromLaunchArgument()
@@ -70,7 +84,9 @@ final class ScanFlowModel {
         guard let name = UserDefaults.standard.string(forKey: "FootScanOpenScan") else { return }
         let folder = ScanFolder(root: ScanFolder.scansRoot.appending(path: name, directoryHint: .isDirectory))
         do {
-            modelSize = try FootMesh.load(from: folder.modelURL).size
+            let mesh = try FootMesh.load(from: folder.modelURL)
+            modelSize = mesh.size
+            analyzeArch(mesh)
             self.folder = folder
             phase = .viewing
             Log.flow.notice("Opened saved scan \(name, privacy: .public) from launch argument")
@@ -90,7 +106,7 @@ final class ScanFlowModel {
             Log.capture.error("Not starting a session: this device doesn't support Object Capture")
             return
         }
-        guard session == nil, phase == .ready, !isShowingTips else { return }
+        guard session == nil, phase == .ready, !isShowingTips, !isClosed else { return }
 
         // Before the tips and before creating a folder: the session fails right away below 4 GB free.
         let freeBytes = ScanFolder.freeBytes()
@@ -111,7 +127,7 @@ final class ScanFlowModel {
 
     /// Creates a fresh scan folder and capture session.
     private func startCaptureSession() {
-        guard session == nil, phase == .ready else { return }
+        guard session == nil, phase == .ready, !isClosed else { return }
 
         let folder: ScanFolder
         do {
@@ -219,6 +235,8 @@ final class ScanFlowModel {
         tearDownSession()
         reconstructor = nil
         modelSize = nil
+        archAnalysis = nil
+        archError = nil
         canRetryProcessing = false
         folder = nil
         phase = .ready
@@ -227,6 +245,33 @@ final class ScanFlowModel {
 
     func cancelReconstruction() {
         reconstructor?.cancel()
+    }
+
+    // MARK: - Embedded in another app
+
+    /// Done on the viewer: hands the finished scan to the host app.
+    func complete() {
+        guard let onComplete, let folder, let modelSize, phase == .viewing else { return }
+        let result = FootScanResult(folder: folder, size: modelSize, arch: archAnalysis)
+        Log.flow.notice("Done: returning \(result.stlURL.path, privacy: .public) (arch: \(result.archType?.rawValue ?? "not measured", privacy: .public)) to the host app")
+        onComplete(result)
+    }
+
+    /// Close button: stops any capture or processing, discards an unfinished capture, and hands control back.
+    func close() {
+        guard let onClose, !isClosed else { return }
+        Log.flow.notice("Scanner closed during \(String(describing: self.phase), privacy: .public)")
+        isClosed = true
+        reconstructor?.cancel()
+        if let session {
+            session.cancel()
+            tearDownSession()
+            // Same as Cancel: a capture that never became a model isn't kept.
+            if let folder, !FileManager.default.fileExists(atPath: folder.modelURL.path) {
+                folder.delete()
+            }
+        }
+        onClose()
     }
 
     /// Processes the current scan's saved photos again after a failure or cancel.
@@ -242,6 +287,8 @@ final class ScanFlowModel {
         folder.removeOutputs()
         canRetryProcessing = false
         modelSize = nil
+        archAnalysis = nil
+        archError = nil
         let reconstructor = Reconstructor(folder: folder)
         self.reconstructor = reconstructor
         phase = .reconstructing
@@ -262,7 +309,7 @@ final class ScanFlowModel {
         }
     }
 
-    /// Reads the mesh back from `foot.usdz`, logs its size (a scale check), and writes `foot.stl`.
+    /// Reads the mesh back from `foot.usdz`, logs its size (a scale check), writes `foot.stl`, and measures the arch.
     private func exportSTL(from folder: ScanFolder) throws {
         let mesh = try FootMesh.load(from: folder.modelURL)
         let cm = mesh.size * 100
@@ -270,6 +317,21 @@ final class ScanFlowModel {
         modelSize = mesh.size
         try STLExporter.write(mesh, to: folder.stlURL)
         Log.files.notice("foot.stl written: \(ScanFolder.sizeInMB(of: folder.stlURL), format: .fixed(precision: 1)) MB at \(folder.stlURL.path, privacy: .public)")
+        analyzeArch(mesh)
+    }
+
+    /// A failed measurement doesn't fail the scan: the model and STL are still good, the viewer just says so.
+    private func analyzeArch(_ mesh: FootMesh) {
+        do {
+            let arch = try FootArchAnalyzer.analyze(mesh)
+            archAnalysis = arch
+            archError = nil
+            Log.analysis.notice("Arch height \(arch.archHeightMM, format: .fixed(precision: 1)) mm → \(arch.archType.rawValue, privacy: .public) (Arch Index \(arch.archIndex, format: .fixed(precision: 3))); foot \(arch.footLengthCM, format: .fixed(precision: 1)) × \(arch.footWidthCM, format: .fixed(precision: 1)) cm")
+        } catch {
+            archAnalysis = nil
+            archError = error.localizedDescription
+            Log.analysis.error("Arch analysis failed: \(String(describing: error), privacy: .public)")
+        }
     }
 
     private func failProcessing(_ message: String) {
