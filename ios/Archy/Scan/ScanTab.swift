@@ -1,27 +1,34 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 import os
 
 /// Scan tab entry point. Rests on the intro; Start opens the camera as a full-screen cover, and
 /// processing, the viewer and failures swap in over the tab as the scan phase advances.
 /// DEBUG routes (`-ArchyRoute`): scan.intro, scan.sample, scan.tips, scan.reconstructing.preview,
-/// scan.failed.preview, scan.capture.preview, scan.capture.lap.preview.
+/// scan.failed.preview, scan.capture.preview, scan.capture.lap.preview. `-ArchyImportScan <path to .stl or .usdz>`
+/// imports that file and opens it, skipping the picker.
 struct ScanTab: View {
     @Environment(ScanFlowModel.self) private var model
     @Environment(AppRouter.self) private var router
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
+    @State private var library = ScanLibrary()
     @State private var sample: SampleScan?
-    @State private var sampleError: String?
+    /// A saved or imported scan open in the viewer.
+    @State private var opened: OpenedScan?
+    /// Why a sample, saved or imported scan couldn't be shown.
+    @State private var openError: String?
     @State private var showingTips = false
+    @State private var showingImporter = false
     #if DEBUG
     @State private var preview: DebugPreview?
     #endif
 
     /// Which screen the tab shows. Changing it plays the step transition.
     private enum Screen: Hashable {
-        case intro, reconstructing, viewing, failed, sample
+        case intro, reconstructing, viewing, failed, sample, saved
     }
 
     private var screen: Screen {
@@ -29,7 +36,8 @@ struct ScanTab: View {
         if let preview { return preview.screen }
         #endif
         if sample != nil { return .sample }
-        if sampleError != nil { return .failed }
+        if opened != nil { return .saved }
+        if openError != nil { return .failed }
         switch model.phase {
         case .reconstructing: return .reconstructing
         case .viewing: return model.folder == nil ? .intro : .viewing
@@ -62,8 +70,17 @@ struct ScanTab: View {
             #endif
             }
         }
+        .fileImporter(isPresented: $showingImporter, allowedContentTypes: Self.importTypes) { result in
+            switch result {
+            case .success(let url): importScan(from: url)
+            case .failure(let error): openError = error.localizedDescription
+            }
+        }
         .sheet(isPresented: $showingTips) {
             ScanTipsSheet { showingTips = false }
+        }
+        .task(id: screen == .intro) {
+            if screen == .intro { await library.reload() }
         }
         .onChange(of: keepsScreenAwake, initial: true) { _, awake in
             UIApplication.shared.isIdleTimerDisabled = awake
@@ -82,9 +99,13 @@ struct ScanTab: View {
         switch screen {
         case .intro:
             ScanIntroView(isSupported: model.isSupported,
+                          previous: library.scans,
                           onStart: { model.begin() },
                           onSample: openSample,
-                          onTips: { showingTips = true })
+                          onTips: { showingTips = true },
+                          onImport: { showingImporter = true },
+                          onOpen: openSaved,
+                          onDelete: library.delete)
         case .reconstructing:
             reconstruction
         case .viewing:
@@ -96,6 +117,10 @@ struct ScanTab: View {
         case .sample:
             if let sample {
                 ModelViewerView(source: .sample(sample), onClose: { self.sample = nil })
+            }
+        case .saved:
+            if let opened {
+                ModelViewerView(source: .saved(opened), onClose: { self.opened = nil })
             }
         }
     }
@@ -124,9 +149,9 @@ struct ScanTab: View {
 
     @ViewBuilder
     private var failure: some View {
-        if let sampleError {
-            ScanFailedView(message: sampleError, canRetry: false, dismissTitle: "Back",
-                           onRetry: {}, onNewScan: { self.sampleError = nil })
+        if let openError {
+            ScanFailedView(message: openError, canRetry: false, dismissTitle: "Back",
+                           onRetry: {}, onNewScan: { self.openError = nil })
         } else {
             ScanFailedView(message: failureMessage, canRetry: model.canRetryProcessing,
                            onRetry: { model.retryProcessing() }, onNewScan: { model.reset() })
@@ -184,7 +209,29 @@ struct ScanTab: View {
             sample = try SampleScan.load()
         } catch {
             Log.viewer.error("Sample scan failed: \(String(describing: error), privacy: .public)")
-            sampleError = error.localizedDescription
+            openError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Saved and imported scans
+
+    /// STL and USDZ, the two formats the viewer reads.
+    private static let importTypes = [UTType(filenameExtension: "stl"), UTType.usdz].compactMap { $0 }
+
+    private func openSaved(_ scan: SavedScan) {
+        do {
+            opened = try library.open(scan.folder)
+        } catch {
+            Log.viewer.error("Couldn't open \(scan.id, privacy: .public): \(String(describing: error), privacy: .public)")
+            openError = "Couldn't open this scan. Its files may be damaged."
+        }
+    }
+
+    private func importScan(from url: URL) {
+        do {
+            opened = try library.importScan(from: url)
+        } catch {
+            openError = error.localizedDescription
         }
     }
 
@@ -204,6 +251,10 @@ struct ScanTab: View {
     }
 
     private func openDebugRoute() {
+        if let path = UserDefaults.standard.string(forKey: "ArchyImportScan") {
+            importScan(from: URL(filePath: path))
+            return
+        }
         switch router.debugRoute {
         case "scan.sample": openSample()
         case "scan.tips": showingTips = true

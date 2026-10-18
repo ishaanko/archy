@@ -2,15 +2,17 @@ import RealityKit
 import SwiftUI
 import os
 
-/// What the viewer shows: a finished scan on disk, or the bundled sample.
+/// What the viewer shows: the scan just made, a saved or imported scan, or the bundled sample.
 enum ViewerSource {
     case scan(ScanFolder, size: SIMD3<Float>?, arch: FootArchAnalysis?)
+    case saved(OpenedScan)
     case sample(SampleScan)
 
-    /// The model as a faded clay entity in meters, from the reconstructed USDZ or the sample's mesh.
+    /// The model as a faded clay entity in meters, from the reconstructed USDZ or the mesh already in memory.
     func loadEntity() async throws -> Entity {
         switch self {
         case .scan(let folder, _, _): try FootModel.entity(for: FootMesh.load(from: folder.modelURL))
+        case .saved(let opened): try FootModel.entity(for: opened.mesh)
         case .sample(let sample): try FootModel.entity(for: sample.mesh)
         }
     }
@@ -19,6 +21,7 @@ enum ViewerSource {
     var size: SIMD3<Float>? {
         switch self {
         case .scan(_, let size, _): size
+        case .saved(let opened): opened.mesh.size
         case .sample(let sample): sample.size
         }
     }
@@ -26,6 +29,7 @@ enum ViewerSource {
     var title: String {
         switch self {
         case .scan: "Your foot"
+        case .saved: "Saved scan"
         case .sample: "Sample scan"
         }
     }
@@ -33,28 +37,35 @@ enum ViewerSource {
     var closeTitle: String {
         switch self {
         case .scan: "New scan"
-        case .sample: "Back"
+        case .saved, .sample: "Back"
         }
     }
 
-    /// Where the files ended up, for real scans only.
-    var filesNote: String? {
+    /// The scan's folder on disk; nil for the bundled sample.
+    var folder: ScanFolder? {
         switch self {
-        case .scan(let folder, _, _): "Also in Files › archy › Scans › \(folder.root.lastPathComponent)"
+        case .scan(let folder, _, _): folder
+        case .saved(let opened): opened.folder
         case .sample: nil
         }
+    }
+
+    /// Where the files ended up, for scans on disk only.
+    var filesNote: String? {
+        folder.map { "Also in Files › archy › Scans › \($0.root.lastPathComponent)" }
     }
 
     /// Flat or normal arch, measured from the sole; nil when the scan's footprint couldn't be read.
     var arch: FootArchAnalysis? {
         switch self {
         case .scan(_, _, let arch): arch
+        case .saved(let opened): opened.arch
         case .sample(let sample): sample.arch
         }
     }
 
     var isRealScan: Bool {
-        if case .scan = self { true } else { false }
+        if case .sample = self { false } else { true }
     }
 }
 
@@ -64,6 +75,7 @@ struct ModelViewerView: View {
     let source: ViewerSource
     let onClose: () -> Void
 
+    @AppStorage(MeasurementUnit.storageKey) private var unit = MeasurementUnit.localeDefault()
     @State private var loadError: String?
     @State private var shareItems: [URL] = []
     @State private var isPreparingShare = false
@@ -145,21 +157,22 @@ struct ModelViewerView: View {
         .accessibilityLabel("3D model of your foot. Drag to rotate, pinch to zoom.")
     }
 
-    /// Length, width and height in cm. Length and width come from the sole when the arch was measured, since the
+    /// Length, width and height in the preferred unit. Length and width come from the sole when the arch was measured, since the
     /// bounding box can include the lower leg. Otherwise: Y is up, and Object Capture doesn't line the foot up
     /// with x or z consistently, so the longer horizontal side is the length.
     private func dimensions(for size: SIMD3<Float>) -> some View {
-        let values: [(label: String, cm: Double)] = [
-            ("Length", source.arch?.footLengthCM ?? Double(max(size.x, size.z)) * 100),
-            ("Width", source.arch?.footWidthCM ?? Double(min(size.x, size.z)) * 100),
-            ("Height", Double(size.y) * 100),
+        let values: [(label: String, millimeters: Double)] = [
+            ("Length", source.arch.map { $0.footLengthCM * 10 } ?? Double(max(size.x, size.z)) * 1000),
+            ("Width", source.arch.map { $0.footWidthCM * 10 } ?? Double(min(size.x, size.z)) * 1000),
+            ("Height", Double(size.y) * 1000),
         ]
+        let digits = unit.fractionDigits(fine: false)
         return HStack(alignment: .top, spacing: Space.lg) {
             ForEach(Array(values.enumerated()), id: \.offset) { index, item in
                 VStack(alignment: .leading, spacing: Space.xs) {
                     HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
-                        MetricText(value: revealed ? item.cm : 0, fractionDigits: 1, style: .title)
-                        Text("cm")
+                        MetricText(value: revealed ? unit.fromMillimeters(item.millimeters) : 0, fractionDigits: digits, style: .title)
+                        Text(unit.symbol)
                             .font(.footnote)
                             .foregroundStyle(.inkTertiary)
                     }
@@ -170,7 +183,7 @@ struct ModelViewerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .reveal(2 + index)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(item.label) \(item.cm.formatted(.number.precision(.fractionLength(1)))) centimeters")
+                .accessibilityLabel("\(item.label) \(unit.format(millimeters: item.millimeters, symbol: false)) \(unit.spokenName)")
             }
         }
     }
@@ -184,8 +197,8 @@ struct ModelViewerView: View {
                 Text(arch.archType == .flat ? "Flat arch" : "Normal arch")
                     .display(.headline)
                 HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
-                    MetricText(value: revealed ? arch.archHeightMM : 0, fractionDigits: 1, style: .title)
-                    Text("mm lift")
+                    MetricText(value: revealed ? unit.fromMillimeters(arch.archHeightMM) : 0, fractionDigits: unit.fractionDigits(fine: true), style: .title)
+                    Text("\(unit.symbol) lift")
                         .font(.footnote)
                         .foregroundStyle(.inkTertiary)
                 }
@@ -203,13 +216,17 @@ struct ModelViewerView: View {
     }
 
     /// Zips the photos (once per scan) so the share sheet can AirDrop STL, USDZ and photos together.
-    /// The sample only offers its STL.
+    /// Imported scans have no photos, so they share just their file; the sample only offers its STL.
     private func prepareShareItems() async {
-        guard case .scan(let folder, _, _) = source else {
+        guard let folder = source.folder else {
             if case .sample(let sample) = source { shareItems = [sample.stlURL] }
             return
         }
         let models = [folder.stlURL, folder.modelURL].filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard folder.imageCount() > 0 else {
+            shareItems = models
+            return
+        }
         let images = folder.images
         let zipURL = folder.imagesZipURL
 

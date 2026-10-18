@@ -26,7 +26,7 @@ struct MeasurementWizard: View {
     @State private var left: FootMeasurements
     @State private var right = FootMeasurements()
     @State private var step: Int
-    @State private var unit: MeasurementUnit = .millimeters
+    @AppStorage(MeasurementUnit.storageKey) private var unit = MeasurementUnit.localeDefault()
     @State private var entry = ""
     @State private var message: String?
     @State private var switching = false
@@ -88,7 +88,7 @@ struct MeasurementWizard: View {
         .onChange(of: unit) { old, new in
             if let raw = Double(entry.replacingOccurrences(of: ",", with: ".")), raw.isFinite {
                 let mm = old.toMillimeters(raw)
-                entry = String(format: "%.2f", new == .millimeters ? mm : mm / 10)
+                entry = String(format: "%.2f", new.fromMillimeters(mm))
             }
         }
     }
@@ -152,7 +152,7 @@ struct MeasurementWizard: View {
                     .keyboardType(.decimalPad)
                     .focused($focused)
                     .display(.metric)
-                    .accessibilityLabel("\(side.title) \(field.title) in \(unit.symbol)")
+                    .accessibilityLabel("\(side.title) \(field.title) in \(unit.spokenName)")
                     .accessibilityIdentifier("measure.field")
                 ArchySegmented(selection: $unit, options: MeasurementUnit.allCases) { $0.symbol }
                     .frame(width: 112)
@@ -190,7 +190,7 @@ struct MeasurementWizard: View {
     private var halfLengthText: String? {
         let half = current.fullLength / 2
         guard half > 0 else { return nil }
-        return unit == .millimeters ? "\(Int(half.rounded())) mm" : "\((half / 10).formatted(.number.precision(.fractionLength(1)))) cm"
+        return unit.format(millimeters: half)
     }
 
     // MARK: Actions
@@ -210,7 +210,7 @@ struct MeasurementWizard: View {
         capture()
         let values = newStep < 6 ? left : right
         let stored = values[MeasurementField.allCases[newStep % 6]]
-        entry = stored > 0 ? String(format: "%.2f", unit == .millimeters ? stored : stored / 10) : ""
+        entry = stored > 0 ? String(format: "%.2f", unit.fromMillimeters(stored)) : ""
         withAnimation(animation) {
             step = newStep
             switching = showSwitch
