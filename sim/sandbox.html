@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Sensor sandbox</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage">
+        <canvas id="c" tabindex="0" aria-label="3D insole with six pressure sensors. Drag a sensor to move it. Arrow keys move the selected sensor, Delete removes it." aria-describedby="hint"></canvas>
+        <div id="labels" aria-hidden="true"></div>
+        <div id="legend" aria-hidden="true"><span id="lg-min">0</span><i id="lg-bar"></i><span id="lg-max"></span></div>
+        <p id="hint">Drag a sensor. Shift-drag or Press mode pushes the insole.</p>
+      </div>
+      <aside id="panel" aria-label="Sensor sandbox controls">
+        <section aria-labelledby="h-pose">
+          <h2 id="h-pose">Foot</h2>
+          <div class="row">
+            <button type="button" data-preset="0">Flat</button>
+            <button type="button" data-preset="0.5">Normal</button>
+            <button type="button" data-preset="1">High arch</button>
+            <label class="chk"><input type="checkbox" id="walk" /> Walk</label>
+            <label class="chk"><input type="checkbox" id="showfoot" checked /> Foot</label>
+          </div>
+          <label class="sl">Arch, flat to high <input type="range" id="arch" min="0" max="1" step="0.01" value="0.5" /><output id="o-arch"></output></label>
+          <label class="sl">Weight, heel to toes <input type="range" id="shift" min="-1" max="1" step="0.01" value="0" /><output id="o-shift"></output></label>
+          <label class="sl">Roll, in to out <input type="range" id="roll" min="-1" max="1" step="0.01" value="0" /><output id="o-roll"></output></label>
+          <label class="sl">Body weight <input type="range" id="kg" min="40" max="130" step="1" value="70" /><output id="o-kg"></output></label>
+        </section>
+
+        <section aria-labelledby="h-view">
+          <h2 id="h-view">View</h2>
+          <div class="row" role="radiogroup" aria-label="Heatmap source">
+            <label class="chk"><input type="radio" name="view" value="true" checked /> True pressure</label>
+            <label class="chk"><input type="radio" name="view" value="seen" /> What the sensors see</label>
+          </div>
+          <dl id="results" aria-live="polite">
+            <dt>Coverage error</dt><dd id="r-err">-</dd>
+            <dt>Arch, true</dt><dd id="r-true">-</dd>
+            <dt>Arch, sensors</dt><dd id="r-seen">-</dd>
+          </dl>
+          <div class="row">
+            <label class="chk">Colors <select id="cmap" aria-label="Colormap"><option value="viridis">viridis</option><option value="cividis">cividis</option></select></label>
+            <button type="button" id="camera">Top view</button>
+          </div>
+        </section>
+
+        <section aria-labelledby="h-tools">
+          <h2 id="h-tools">Sensors</h2>
+          <div class="row">
+            <button type="button" id="add">Add</button>
+            <button type="button" id="remove">Remove selected</button>
+            <button type="button" id="reset">Reset layout</button>
+          </div>
+          <div class="row" role="radiogroup" aria-label="Pointer mode">
+            <label class="chk"><input type="radio" name="mode" value="orbit" checked /> Orbit</label>
+            <label class="chk"><input type="radio" name="mode" value="press" /> Press</label>
+          </div>
+          <label class="sl">Press radius <input type="range" id="pr" min="3" max="30" step="1" value="8" /><output id="o-pr"></output></label>
+          <label class="sl">Press force <input type="range" id="pf" min="2" max="80" step="1" value="20" /><output id="o-pf"></output></label>
+          <label class="chk">Board
+            <select id="board" aria-label="Board">
+              <option value="uno">Uno / Nano, 10-bit, 5 V</option>
+              <option value="esp32">ESP32, 12-bit, 3.3 V</option>
+            </select>
+          </label>
+          <table id="tbl">
+            <thead><tr><th scope="col">Sensor</th><th scope="col">kPa</th><th scope="col">kohm</th><th scope="col">V</th><th scope="col">ADC</th><th scope="col">seen</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <pre id="serial" aria-label="Serial output the firmware would print"></pre>
+          <p id="pins"></p>
+        </section>
+
+        <section aria-labelledby="h-out">
+          <h2 id="h-out">Export</h2>
+          <div class="row">
+            <button type="button" id="copy">Copy layout</button>
+            <button type="button" id="connect" hidden>Connect real kit</button>
+            <button type="button" id="tare" hidden>Tare</button>
+          </div>
+          <p id="status" role="status"></p>
+          <p id="note">Measure y from the back of the heel and x from the inner edge. Sensor face up, active disc centered on the point. Scale by your insole length divided by <span id="len"></span> mm.</p>
+        </section>
+      </aside>
+    </div>
+    <script type="module" src="/src/sandbox/main.ts"></script>
+  </body>
+</html>
