@@ -6,16 +6,15 @@
 //
 
 import SwiftUI
-import CoreData
 
 @main
 struct FootScanApp: App {
-    let persistenceController = PersistenceController.shared
+    @State private var model = ScanFlowModel()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+            ScanRootView()
+                .environment(model)
         }
     }
 }
