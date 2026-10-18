@@ -11,9 +11,11 @@ enum FootModel {
 
     enum Failure: Error { case fadeTexture }
 
-    static func entity(for scan: FootMesh) throws -> ModelEntity {
-        // Display only: stand a tilted scan level so the fade runs parallel to the floor.
-        let mesh = FootArchAnalyzer.leveled(scan)
+    /// `floorNormal` is the analyzer's sole support plane; the model is turned so it points up, which
+    /// stands a tilted scan level and keeps the fade parallel to the floor. Nil shows the scan as captured.
+    static func entity(for scan: FootMesh, floorNormal: SIMD3<Float>?) throws -> ModelEntity {
+        let rotation = simd_quatf(from: floorNormal ?? SIMD3(0, 1, 0), to: SIMD3(0, 1, 0))
+        let mesh = FootMesh(vertices: scan.vertices.map { rotation.act($0) }, indices: scan.indices)
         let (bottom, top) = (mesh.bounds.min.y, mesh.bounds.max.y)
         let height = max(top - bottom, .ulpOfOne)
 

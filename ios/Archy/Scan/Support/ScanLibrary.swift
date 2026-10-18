@@ -6,17 +6,24 @@ import os
 struct SavedScan: Identifiable {
     let folder: ScanFolder
     let date: Date
-    /// Nil until measured, or when the footprint couldn't be read.
+    /// Nil until measured, or when the model file couldn't be read.
     var summary: ScanSummary?
     var id: String { folder.root.lastPathComponent }
 }
 
 /// What the list shows beyond the date. Cached as `summary.json` in the scan folder so each scan is measured once.
+/// Both values are nil when the arch couldn't be measured.
 struct ScanSummary: Codable {
+    /// Bump when the analyzer's results change, so cached summaries are measured again.
+    static let currentVersion = 2
+
+    let version: Int
     var lengthMM: Double?
     var isFlat: Bool?
 
-    init(_ arch: FootArchAnalysis?) {
+    init(_ arch: Result<FootArchAnalysis, any Error>) {
+        let arch = try? arch.get()
+        version = Self.currentVersion
         lengthMM = arch.map { $0.footLengthCM * 10 }
         isFlat = arch.map { $0.archType == .flat }
     }
@@ -26,11 +33,11 @@ extension ScanFolder {
     fileprivate var summaryURL: URL { root.appending(path: "summary.json") }
 }
 
-/// A scan loaded for the viewer: its mesh and the arch read from it, if the footprint could be measured.
+/// A scan loaded for the viewer: its mesh and the arch read from it, or why the arch couldn't be measured.
 struct OpenedScan {
     let folder: ScanFolder
     let mesh: FootMesh
-    let arch: FootArchAnalysis?
+    let arch: Result<FootArchAnalysis, any Error>
 }
 
 /// The finished scans under `Documents/Scans`, plus opening, importing and deleting them.
@@ -60,7 +67,7 @@ final class ScanLibrary {
         for scan in scans where scan.summary == nil {
             await Task.yield()
             guard let mesh = try? scan.folder.loadMesh() else { continue }
-            let summary = ScanSummary(try? FootArchAnalyzer.analyze(mesh))
+            let summary = ScanSummary(Result { try FootArchAnalyzer.analyze(mesh) })
             Self.cache(summary, for: scan.folder)
             if let index = scans.firstIndex(where: { $0.id == scan.id }) { scans[index].summary = summary }
         }
@@ -69,7 +76,7 @@ final class ScanLibrary {
     /// Reads a saved scan for the viewer.
     func open(_ folder: ScanFolder) throws -> OpenedScan {
         let mesh = try folder.loadMesh()
-        return OpenedScan(folder: folder, mesh: mesh, arch: try? FootArchAnalyzer.analyze(mesh))
+        return OpenedScan(folder: folder, mesh: mesh, arch: Result { try FootArchAnalyzer.analyze(mesh) })
     }
 
     /// Copies an STL or USDZ the user picked into a new scan folder, so it joins the list, and opens it.
@@ -84,8 +91,9 @@ final class ScanLibrary {
         do {
             try FileManager.default.copyItem(at: url, to: ext == "stl" ? folder.stlURL : folder.modelURL)
             let opened = try open(folder)
-            Self.cache(ScanSummary(opened.arch), for: folder)
-            scans.insert(SavedScan(folder: folder, date: folder.date, summary: ScanSummary(opened.arch)), at: 0)
+            let summary = ScanSummary(opened.arch)
+            Self.cache(summary, for: folder)
+            scans.insert(SavedScan(folder: folder, date: folder.date, summary: summary), at: 0)
             Log.files.notice("Imported \(url.lastPathComponent, privacy: .public) as \(folder.root.lastPathComponent, privacy: .public)")
             return opened
         } catch {
@@ -100,8 +108,11 @@ final class ScanLibrary {
         scans.removeAll { $0.id == scan.id }
     }
 
+    /// The cached summary, unless it's missing or from an older analyzer.
     private static func cachedSummary(for folder: ScanFolder) -> ScanSummary? {
-        (try? Data(contentsOf: folder.summaryURL)).flatMap { try? JSONDecoder().decode(ScanSummary.self, from: $0) }
+        (try? Data(contentsOf: folder.summaryURL))
+            .flatMap { try? JSONDecoder().decode(ScanSummary.self, from: $0) }
+            .flatMap { $0.version == ScanSummary.currentVersion ? $0 : nil }
     }
 
     private static func cache(_ summary: ScanSummary, for folder: ScanFolder) {

@@ -4,7 +4,6 @@
 //
 
 import Foundation
-import os
 import simd
 
 /// Flat vs. normal arch from the reconstructed mesh of a standing foot.
@@ -24,71 +23,99 @@ enum FootArchAnalyzer {
     static let contactHeight: Float = 0.005
     /// The front of the footprint treated as toes and left out, as in the published method.
     static let toeFraction: Float = 0.20
-    /// Arch Index at or above this is flat (published cutoff; reported, not used to classify).
-    static let flatArchIndex = 0.26
-    /// Inner arch lower than this is flat. Set halfway between the first test feet: a known flat foot
-    /// measured 5.9 mm and a normal one 15.9 mm. Refine as more scans come in.
-    static let flatArchHeight: Float = 0.010
+    /// Inner arch lower than this (in mm, as displayed: rounded to 0.1) is flat. From six test scans of four
+    /// feet: known flat feet measured 1.4–5.8 mm, the normal foot 13.6–15.5 mm, and repeat scans of a foot
+    /// agreed within about 2 mm.
+    static let flatArchHeightMM = 10.0
+    /// A sole tilted more than this many degrees wasn't standing flat (weight back, sloped floor).
+    nonisolated static let unevenSoleTilt: Float = 4
+    /// A footprint shorter than this isn't a foot (adult feet are about 22–30 cm).
+    static let minimumFootLength: Float = 0.15
 
+    /// Messages give only the cause; the viewer shows them under "Arch not measured".
     enum Failure: LocalizedError {
-        case noFootprint
+        case noFootprint(lengthCM: Double, tiltDegrees: Double)
+        case noArchProfile
+        case unreadableMesh
 
         var errorDescription: String? {
             switch self {
-            case .noFootprint: "The scan has no footprint on the floor, so the arch can't be measured."
+            case .noFootprint(_, let tilt) where tilt > Double(FootArchAnalyzer.unevenSoleTilt):
+                "There's no foot-sized footprint on the floor (sole tilted \(String(format: "%.1f", tilt))°). Stand with weight on the whole foot."
+            case .noFootprint:
+                "There's no foot-sized footprint on the floor."
+            case .noArchProfile:
+                "The sides of the sole couldn't be traced."
+            case .unreadableMesh:
+                "The model's shape couldn't be read."
             }
         }
     }
 
-    static func analyze(_ scan: FootMesh) throws -> FootArchAnalysis {
-        let mesh = leveled(scan)
+    static func analyze(_ mesh: FootMesh) throws -> FootArchAnalysis {
+        // FootMesh.load already rejects these; checked again because a damaged mesh must never crash this.
+        guard mesh.isUsable else { throw Failure.unreadableMesh }
         let floorY = mesh.bounds.min.y
         let axes = footAxes(mesh, floorY: floorY)
-        let grid = HeightGrid(mesh: mesh, axes: axes, floorY: floorY, cellSize: cellSize)
-        let contact = largestRegion(of: grid.lowest.map { $0 < contactHeight }, columns: grid.columns, rows: grid.rows)
+        var grid = HeightGrid(mesh: mesh, axes: axes, floorY: floorY, cellSize: cellSize)
+        let (soleTilt, floorSlope) = grid.levelToSupportPlane(cellSize: cellSize)
+        let contact = footRegions(of: grid.lowest.map { $0 < contactHeight }, columns: grid.columns, rows: grid.rows)
 
         // Footprint extent along the foot: columns with a real strip of contact, not single stray cells.
         let minimumCells = 3
         let contactColumns = (0..<grid.columns).filter { column in
             (0..<grid.rows).count(where: { contact[$0 * grid.columns + column] }) >= minimumCells
         }
-        guard let heel = contactColumns.first, let toeTip = contactColumns.last, toeTip - heel >= 30 else {
-            throw Failure.noFootprint
+        guard let contactHeel = contactColumns.first, let contactToe = contactColumns.last else {
+            throw Failure.noFootprint(lengthCM: 0, tiltDegrees: Double(soleTilt))
         }
+        // The foot runs past its contact patch where the sole lifts (toes, the heel's edge). Grow the span
+        // along the sole's outline so length, the arch measurement and the drawing include them.
+        func outlineCells(_ column: Int) -> Int {
+            (0..<grid.rows).count(where: { grid.lowest[$0 * grid.columns + column] < outlineHeight })
+        }
+        var heel = contactHeel, toeTip = contactToe
+        while heel > 0, outlineCells(heel - 1) >= minimumCells { heel -= 1 }
+        while toeTip < grid.columns - 1, outlineCells(toeTip + 1) >= minimumCells { toeTip += 1 }
         let lengthColumns = toeTip - heel + 1
-        // Thirds of the toe-less footprint, in columns from the heel. They rarely fall on whole columns, so
-        // each column's contact is split between thirds by overlap; whole-column thirds would bias the index.
-        let third = Float(lengthColumns) * (1 - toeFraction) / 3
+        guard lengthColumns >= Int((minimumFootLength / cellSize).rounded()) else {
+            throw Failure.noFootprint(lengthCM: Double(Float(lengthColumns) * cellSize * 100),
+                                      tiltDegrees: Double(soleTilt))
+        }
+
+        // Arch Index over the contact footprint without toes, as in the published method. The thirds rarely
+        // fall on whole columns, so each column's contact is split by overlap; whole-column thirds bias it.
+        let third = Float(contactToe - contactHeel + 1) * (1 - toeFraction) / 3
         var thirds: [Float] = [0, 0, 0]
         var maxWidthCells = 0
         for column in heel...toeTip {
-            let cells = (0..<grid.rows).count(where: { contact[$0 * grid.columns + column] })
             // Width from the sole's outline, not its contact: a rolled foot touches with a narrow strip.
-            let outlineCells = (0..<grid.rows).count(where: { grid.lowest[$0 * grid.columns + column] < outlineHeight })
-            maxWidthCells = max(maxWidthCells, outlineCells)
-            let start = Float(column - heel), end = start + 1
+            maxWidthCells = max(maxWidthCells, outlineCells(column))
+            guard column >= contactHeel, column <= contactToe else { continue }
+            let cells = (0..<grid.rows).count(where: { contact[$0 * grid.columns + column] })
+            let start = Float(column - contactHeel), end = start + 1
             for k in 0..<3 {
                 let overlap = min(end, Float(k + 1) * third) - max(start, Float(k) * third)
                 if overlap > 0 { thirds[k] += Float(cells) * overlap }
             }
         }
         let archIndex = Double(thirds[1] / max(thirds.reduce(0, +), 1))
-        // Rounded positions, for drawing only.
-        let toesStart = heel + Int((3 * third).rounded())
-        let thirdBoundaries = [heel + Int(third.rounded()), heel + Int((2 * third).rounded())]
 
-        let arch = measureArch(grid: grid, heel: heel, toeTip: toeTip)
-        let archType: ArchType = arch.height < flatArchHeight ? .flat : .normal
+        guard let arch = measureArch(grid: grid, heel: heel, toeTip: toeTip) else { throw Failure.noArchProfile }
+        // Classify the value the user sees, so "10.0 mm" can never sit under "flat is under 10 mm".
+        let archHeightMM = (Double(arch.height) * 10_000).rounded() / 10
+        let archType: ArchType = archHeightMM < flatArchHeightMM ? .flat : .normal
         let footprint = Footprint(cellSize: cellSize, columns: grid.columns, rows: grid.rows, contact: contact,
-                                  heights: grid.lowest, heelColumn: heel, toesStartColumn: toesStart,
-                                  toeTipColumn: toeTip, thirdBoundaries: thirdBoundaries,
+                                  heights: grid.lowest, heelColumn: heel, toeTipColumn: toeTip,
                                   innerSideAtHighRows: arch.innerSideAtHighRows,
                                   archPeakColumn: archType == .normal ? arch.peakColumn : nil)
         return FootArchAnalysis(archIndex: archIndex,
-                                archHeightMM: Double(arch.height * 1000),
+                                archHeightMM: archHeightMM,
                                 archType: archType,
                                 footLengthCM: Double(Float(lengthColumns) * cellSize * 100),
                                 footWidthCM: Double(Float(maxWidthCells) * cellSize * 100),
+                                soleTiltDegrees: Double(soleTilt),
+                                floorNormal: axes.floorNormal(slope: floorSlope),
                                 footprint: footprint)
     }
 
@@ -101,7 +128,7 @@ enum FootArchAnalyzer {
     /// bigger rise at mid-foot is the inner side. Returns that rise in meters, which side it is, and
     /// the column where the arch is highest.
     private static func measureArch(grid: HeightGrid, heel: Int, toeTip: Int)
-        -> (height: Float, innerSideAtHighRows: Bool, peakColumn: Int?) {
+        -> (height: Float, innerSideAtHighRows: Bool, peakColumn: Int?)? {
         var profiles: [[Float]] = [[], []]
         for column in heel...toeTip {
             let rows = (0..<grid.rows).filter { grid.lowest[$0 * grid.columns + column] < outlineHeight }
@@ -120,6 +147,8 @@ enum FootArchAnalyzer {
 
         let length = Float(toeTip - heel + 1)
         var best: (height: Float, innerSideAtHighRows: Bool, peakColumn: Int?) = (0, true, nil)
+        // Without a heel and ball level on at least one side there's no baseline: report that, not "0 mm, flat".
+        var measuredSides = 0
         for (side, raw) in profiles.enumerated() {
             // Smooth with a 5-column (1.5 cm) running median so a single noisy column can't make an arch.
             let profile = raw.indices.map { i in median(raw[max(0, i - 2)...min(raw.count - 1, i + 2)].filter(\.isFinite)) }
@@ -128,6 +157,7 @@ enum FootArchAnalyzer {
             }
             let heelLevel = level(0.05, 0.20), ballLevel = level(0.65, 0.80)
             guard heelLevel.isFinite, ballLevel.isFinite else { continue }
+            measuredSides += 1
             for i in Int(0.25 * length)..<Int(0.60 * length) where profile[i].isFinite {
                 let f = Float(i) / length
                 let baseline = heelLevel + (ballLevel - heelLevel) * (f - 0.125) / (0.725 - 0.125)
@@ -137,7 +167,7 @@ enum FootArchAnalyzer {
                 }
             }
         }
-        return best
+        return measuredSides > 0 ? best : nil
     }
 
     /// Median of the values, or NaN if there are none.
@@ -147,62 +177,6 @@ enum FootArchAnalyzer {
     }
 
     // MARK: - Steps
-
-    /// Tilt below this is left alone: the heel-to-ball baseline already absorbs it, and `flatArchHeight` was set
-    /// on scans with floors tilted 1.3° to 3.3°. Pranav's flat left foot came out at 7.5° and only measured once leveled.
-    static let levelingThreshold: Float = 4 * .pi / 180
-    /// Tilt above this means the floor fit went wrong; the scan is measured as it is.
-    static let levelingLimit: Float = 20 * .pi / 180
-
-    /// Rotates the mesh so the floor it stands on is level. Object Capture's up axis can be a few degrees
-    /// off (one scan sat 3 cm higher at the heel than the toes), and the footprint is read as everything
-    /// near the lowest point, so a tilt leaves only one end of the sole "on the floor".
-    ///
-    /// The floor is the lower envelope of the sole: the lowest point in each 1 cm column, fitted with a plane,
-    /// keeping the lower half of the points for a few rounds so the arch and the side walls drop out.
-    static func leveled(_ mesh: FootMesh) -> FootMesh {
-        guard let up = floorNormal(mesh) else { return mesh }
-        let tilt = acos(min(1, up.y))
-        guard tilt > levelingThreshold, tilt < levelingLimit else { return mesh }
-        let rotation = simd_quatf(from: up, to: SIMD3(0, 1, 0))
-        Log.analysis.notice("Leveled a \(tilt * 180 / .pi, format: .fixed(precision: 1))° floor tilt before measuring")
-        return FootMesh(vertices: mesh.vertices.map { rotation.act($0) }, indices: mesh.indices)
-    }
-
-    /// Unit normal of the floor under the sole, from its lower envelope; nil if there's too little to fit.
-    static func floorNormal(_ mesh: FootMesh) -> SIMD3<Float>? {
-        let cell: Float = 0.01
-        var lowest: [SIMD2<Int>: SIMD3<Float>] = [:]
-        for p in mesh.vertices {
-            let key = SIMD2(Int((p.x / cell).rounded(.down)), Int((p.z / cell).rounded(.down)))
-            if let current = lowest[key], current.y <= p.y { continue }
-            lowest[key] = p
-        }
-        var points = Array(lowest.values)
-        guard var plane = fitPlane(points) else { return nil } // y = a·x + b·z + c
-        for _ in 0..<3 {
-            guard points.count >= 24, let fit = fitPlane(points) else { break }
-            plane = fit
-            let residuals = points.map { $0.y - (plane.x * $0.x + plane.y * $0.z + plane.z) }
-            let cutoff = residuals.sorted()[residuals.count / 2]
-            points = zip(points, residuals).filter { $0.1 <= cutoff }.map(\.0)
-        }
-        return simd_normalize(SIMD3<Float>(-plane.x, 1, -plane.y))
-    }
-
-    /// Least-squares plane y = a·x + b·z + c through the points, as (a, b, c); nil if they're degenerate.
-    private static func fitPlane(_ points: [SIMD3<Float>]) -> SIMD3<Float>? {
-        var m = simd_double3x3(0)
-        var v = SIMD3<Double>.zero
-        for p in points {
-            let row = SIMD3<Double>(Double(p.x), Double(p.z), 1)
-            m += simd_double3x3(columns: (row * row.x, row * row.y, row * row.z))
-            v += row * Double(p.y)
-        }
-        guard abs(m.determinant) > 1e-12 else { return nil }
-        let solution = m.inverse * v
-        return SIMD3<Float>(Float(solution.x), Float(solution.y), Float(solution.z))
-    }
 
     /// Horizontal directions along (heel → toe) and across the foot, plus the center they're measured from.
     struct Axes {
@@ -214,6 +188,12 @@ enum FootArchAnalyzer {
         func project(_ p: SIMD3<Float>) -> SIMD2<Float> {
             let d = SIMD2(p.x, p.z) - center
             return SIMD2(simd_dot(d, along), simd_dot(d, across))
+        }
+
+        /// Unit up direction, in mesh coordinates, of a floor rising `slope` meters per meter along and across.
+        func floorNormal(slope: SIMD2<Float>) -> SIMD3<Float> {
+            let gradient = slope.x * along + slope.y * across
+            return simd_normalize(SIMD3(-gradient.x, 1, -gradient.y))
         }
     }
 
@@ -243,10 +223,12 @@ enum FootArchAnalyzer {
         return Axes(center: center, along: along)
     }
 
-    /// Keeps only the biggest connected patch of contact (the foot), dropping specks such as floor debris.
-    static func largestRegion(of cells: [Bool], columns: Int, rows: Int) -> [Bool] {
+    /// Keeps the foot's contact patches and drops specks such as floor debris. A patch counts if it's at least
+    /// 15% the size of the biggest one: a high arch splits the footprint into heel and forefoot, and keeping
+    /// only the biggest would measure the forefoot alone and call the foot flat.
+    static func footRegions(of cells: [Bool], columns: Int, rows: Int) -> [Bool] {
         var label = [Int](repeating: -1, count: cells.count)
-        var best: [Int] = []
+        var regions: [[Int]] = []
         for start in cells.indices where cells[start] && label[start] < 0 {
             var region = [start]
             label[start] = start
@@ -265,10 +247,13 @@ enum FootArchAnalyzer {
                     }
                 }
             }
-            if region.count > best.count { best = region }
+            regions.append(region)
         }
+        let largest = regions.map(\.count).max() ?? 0
         var result = [Bool](repeating: false, count: cells.count)
-        for i in best { result[i] = true }
+        for region in regions where Double(region.count) >= 0.15 * Double(largest) {
+            for i in region { result[i] = true }
+        }
         return result
     }
 }
@@ -289,7 +274,16 @@ struct FootArchAnalysis {
     let footLengthCM: Double
     /// Widest part of the footprint.
     let footWidthCM: Double
+    /// How tilted the plane the sole rests on was. A foot standing with weight on it is close to 0°; more
+    /// than `FootArchAnalyzer.unevenSoleTilt` suggests weight back on the heel or a sloped floor.
+    let soleTiltDegrees: Double
+    /// Up direction of the plane the sole rests on, in the mesh's coordinates; straight up when it wasn't
+    /// leveled. The viewer rotates the model by it so the displayed foot stands level.
+    let floorNormal: SIMD3<Float>
     let footprint: Footprint
+
+    /// The scan wasn't of a foot standing flat, so the result is less certain.
+    var isSoleUneven: Bool { soleTiltDegrees > Double(FootArchAnalyzer.unevenSoleTilt) }
 }
 
 /// The sole as seen from below, for drawing: columns run heel → toe, rows across the foot.
@@ -298,16 +292,13 @@ struct Footprint {
     let cellSize: Float
     let columns: Int
     let rows: Int
-    /// Touching the floor (the foot's main contact patch only).
+    /// Touching the floor (the foot's contact patches; floor specks dropped).
     let contact: [Bool]
-    /// Height of the sole's underside above the floor, in meters; infinity where there's no surface.
-    /// The sole's outline is where this is below `FootArchAnalyzer.outlineHeight`.
+    /// Height of the sole's underside above the plane it rests on, in meters; infinity where there's no
+    /// surface. The sole's outline is where this is below `FootArchAnalyzer.outlineHeight`.
     let heights: [Float]
     let heelColumn: Int
-    let toesStartColumn: Int
     let toeTipColumn: Int
-    /// Where the middle third (for the Arch Index) starts and ends.
-    let thirdBoundaries: [Int]
     /// Whether the inner (big-toe, arch) side is at high row numbers.
     let innerSideAtHighRows: Bool
     /// Where along the foot the arch is highest, for labeling it; nil when the foot is classified flat.
@@ -361,5 +352,55 @@ private struct HeightGrid {
         guard column >= 0, column < columns, row >= 0, row < rows else { return }
         let i = row * columns + column
         lowest[i] = min(lowest[i], height)
+    }
+
+    /// Re-measures every height from the plane the sole rests on (heel, ball, outer edge) instead of from
+    /// the scan's lowest point. Without this, a sole tilted by weight on the heel or a sloped floor loses
+    /// most of its footprint. Returns the plane's tilt in degrees and the slope it removed (meters per meter
+    /// along and across the foot); a tilt over 15° is left alone as implausible, with zero slope.
+    mutating func levelToSupportPlane(cellSize: Float) -> (tilt: Float, slope: SIMD2<Float>) {
+        // Sole cells only: the lower leg, when the scan includes it, is 10 cm or more up.
+        var points: [SIMD3<Double>] = []
+        for row in 0..<rows {
+            for column in 0..<columns where lowest[row * columns + column] < 0.08 {
+                points.append(SIMD3(Double(column), Double(row), Double(lowest[row * columns + column])))
+            }
+        }
+        guard points.count >= 50 else { return (0, .zero) }
+
+        // Plane h = a + b·column + c·row. Refit to the lower half of the points each round: the arch and
+        // the sole's edges sit above the support plane, so they drop out and the fit settles onto it.
+        var plane = SIMD3<Double>.zero
+        for _ in 0..<5 {
+            guard let fit = Self.fitPlane(points) else { break }
+            plane = fit
+            let residuals = points.map { $0.z - (plane.x + plane.y * $0.x + plane.z * $0.y) }
+            let cutoff = residuals.sorted()[residuals.count / 2]
+            points = zip(points, residuals).filter { $0.1 <= cutoff }.map(\.0)
+            if points.count < 30 { break }
+        }
+
+        let slope = SIMD2(plane.y, plane.z) / Double(cellSize)
+        let tilt = Float(atan(simd_length(slope)) * 180 / .pi)
+        guard tilt < 15 else { return (tilt, .zero) }
+        for row in 0..<rows {
+            for column in 0..<columns where lowest[row * columns + column].isFinite {
+                lowest[row * columns + column] -= Float(plane.x + plane.y * Double(column) + plane.z * Double(row))
+            }
+        }
+        return (tilt, SIMD2<Float>(slope))
+    }
+
+    /// Least-squares plane z = a + b·x + c·y, as (a, b, c); nil if the points are degenerate.
+    private static func fitPlane(_ points: [SIMD3<Double>]) -> SIMD3<Double>? {
+        var normal = simd_double3x3()
+        var right = SIMD3<Double>.zero
+        for p in points {
+            let row = SIMD3(1, p.x, p.y)
+            normal += simd_double3x3(columns: (row * row.x, row * row.y, row * row.z))
+            right += row * p.z
+        }
+        guard abs(normal.determinant) > 1e-9 else { return nil }
+        return normal.inverse * right
     }
 }

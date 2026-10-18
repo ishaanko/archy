@@ -9,8 +9,8 @@ struct SampleScan {
     let stlURL: URL
     /// Welded triangles in meters, Y up, like a reconstructed scan.
     let mesh: FootMesh
-    /// The arch read from the sample's sole, like a real scan; nil if the footprint couldn't be measured.
-    let arch: FootArchAnalysis?
+    /// The arch read from the sample's sole, like a real scan.
+    let arch: Result<FootArchAnalysis, any Error>
 
     var size: SIMD3<Float> { mesh.size }
 
@@ -30,6 +30,6 @@ struct SampleScan {
             throw Failure.missingResource
         }
         let mesh = try FootMesh.loadSTL(from: url)
-        return SampleScan(stlURL: url, mesh: mesh, arch: try? FootArchAnalyzer.analyze(mesh))
+        return SampleScan(stlURL: url, mesh: mesh, arch: Result { try FootArchAnalyzer.analyze(mesh) })
     }
 }

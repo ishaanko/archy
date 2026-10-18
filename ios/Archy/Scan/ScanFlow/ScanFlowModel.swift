@@ -41,9 +41,8 @@ final class ScanFlowModel {
     private(set) var reconstructor: Reconstructor?
     /// Bounding-box size of the finished model in meters (width, height, depth).
     private(set) var modelSize: SIMD3<Float>?
-    /// Flat vs. normal arch for the finished model; nil if it couldn't be measured (see `archError`).
-    private(set) var archAnalysis: FootArchAnalysis?
-    private(set) var archError: String?
+    /// Flat vs. normal arch for the finished model, or why it couldn't be measured; nil until measured.
+    private(set) var arch: Result<FootArchAnalysis, any Error>?
     /// The last failure happened while processing saved photos, so they can be processed again.
     private(set) var canRetryProcessing = false
 
@@ -55,10 +54,16 @@ final class ScanFlowModel {
     let brightness = BrightnessMonitor()
 
     private var sessionTasks: [Task<Void, Never>] = []
+    /// Startup cleanup of `Documents/Scans` has run in this app launch.
+    private static var hasCleanedUp = false
 
     init() {
         Log.flow.notice("Scanner launched. ObjectCaptureSession.isSupported = \(self.isSupported)")
-        ScanFolder.cleanUp()
+        // Once per app launch, before any scan folder of this launch exists.
+        if !Self.hasCleanedUp {
+            Self.hasCleanedUp = true
+            ScanFolder.cleanUp()
+        }
         #if DEBUG
         openScanFromLaunchArgument()
         #endif
@@ -211,8 +216,7 @@ final class ScanFlowModel {
         tearDownSession()
         reconstructor = nil
         modelSize = nil
-        archAnalysis = nil
-        archError = nil
+        arch = nil
         canRetryProcessing = false
         folder = nil
         phase = .ready
@@ -235,8 +239,7 @@ final class ScanFlowModel {
         folder.removeOutputs()
         canRetryProcessing = false
         modelSize = nil
-        archAnalysis = nil
-        archError = nil
+        arch = nil
         let reconstructor = Reconstructor(folder: folder)
         self.reconstructor = reconstructor
         phase = .reconstructing
@@ -270,14 +273,12 @@ final class ScanFlowModel {
 
     /// A failed measurement doesn't fail the scan: the model and STL are still good, the viewer just says so.
     private func analyzeArch(_ mesh: FootMesh) {
-        do {
-            let arch = try FootArchAnalyzer.analyze(mesh)
-            archAnalysis = arch
-            archError = nil
-            Log.analysis.notice("Arch height \(arch.archHeightMM, format: .fixed(precision: 1)) mm → \(arch.archType.rawValue, privacy: .public) (Arch Index \(arch.archIndex, format: .fixed(precision: 3))); foot \(arch.footLengthCM, format: .fixed(precision: 1)) × \(arch.footWidthCM, format: .fixed(precision: 1)) cm")
-        } catch {
-            archAnalysis = nil
-            archError = error.localizedDescription
+        let result = Result { try FootArchAnalyzer.analyze(mesh) }
+        arch = result
+        switch result {
+        case .success(let arch):
+            Log.analysis.notice("Arch height \(arch.archHeightMM, format: .fixed(precision: 1)) mm → \(arch.archType.rawValue, privacy: .public) (Arch Index \(arch.archIndex, format: .fixed(precision: 3))); sole tilt \(arch.soleTiltDegrees, format: .fixed(precision: 1))°\(arch.isSoleUneven ? " UNEVEN" : "", privacy: .public); foot \(arch.footLengthCM, format: .fixed(precision: 1)) × \(arch.footWidthCM, format: .fixed(precision: 1)) cm")
+        case .failure(let error):
             Log.analysis.error("Arch analysis failed: \(String(describing: error), privacy: .public)")
         }
     }
