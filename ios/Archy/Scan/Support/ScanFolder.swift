@@ -9,7 +9,7 @@ import os
 /// On-disk layout for one scan: `Documents/Scans/<timestamp>/{Images/, Checkpoint/, foot.usdz, foot.stl}`.
 /// Images are kept after reconstruction so the scan can be reprocessed on a Mac. The checkpoint
 /// (the biggest part, 300–650 MB) is only needed until the model is built, so it's deleted then.
-struct ScanFolder {
+nonisolated struct ScanFolder {
     let root: URL
 
     var images: URL { root.appending(path: "Images", directoryHint: .isDirectory) }

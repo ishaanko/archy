@@ -65,9 +65,14 @@ final class ScanLibrary {
         }.sorted { $0.date > $1.date }
 
         for scan in scans where scan.summary == nil {
-            await Task.yield()
-            guard let mesh = try? scan.folder.loadMesh() else { continue }
-            let summary = ScanSummary(Result { try FootArchAnalyzer.analyze(mesh) })
+            let folder = scan.folder
+            // Off the main actor: reading and measuring a full scan takes a second or more.
+            let arch = await Task.detached(priority: .userInitiated) { () -> Result<FootArchAnalysis, any Error>? in
+                guard let mesh = try? folder.loadMesh() else { return nil }
+                return Result { try FootArchAnalyzer.analyze(mesh) }
+            }.value
+            guard let arch else { continue }
+            let summary = ScanSummary(arch)
             Self.cache(summary, for: scan.folder)
             if let index = scans.firstIndex(where: { $0.id == scan.id }) { scans[index].summary = summary }
         }

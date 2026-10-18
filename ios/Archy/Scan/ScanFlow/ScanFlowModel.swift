@@ -78,7 +78,7 @@ final class ScanFlowModel {
         do {
             let mesh = try FootMesh.load(from: folder.modelURL)
             modelSize = mesh.size
-            analyzeArch(mesh)
+            arch = Self.analyzeArch(mesh)
             self.folder = folder
             phase = .viewing
             Log.flow.notice("Opened saved scan \(name, privacy: .public) from launch argument")
@@ -235,7 +235,8 @@ final class ScanFlowModel {
     // MARK: - Reconstruction
 
     private func startReconstruction() {
-        guard let folder else { return }
+        // One reconstruction at a time: a double-tapped "Try again" must not start a second session on the same folder.
+        guard let folder, reconstructor == nil else { return }
         folder.removeOutputs()
         canRetryProcessing = false
         modelSize = nil
@@ -247,7 +248,7 @@ final class ScanFlowModel {
         Task {
             do {
                 try await reconstructor.run()
-                try exportSTL(from: folder)
+                try await exportSTL(from: folder)
                 folder.removeCheckpoint()
                 self.reconstructor = nil
                 phase = .viewing
@@ -261,26 +262,30 @@ final class ScanFlowModel {
     }
 
     /// Reads the mesh back from `foot.usdz`, logs its size (a scale check), writes `foot.stl`, and measures the arch.
-    private func exportSTL(from folder: ScanFolder) throws {
-        let mesh = try FootMesh.load(from: folder.modelURL)
-        let cm = mesh.size * 100
-        Log.reconstruction.notice("Mesh: \(mesh.vertices.count) vertices, \(mesh.triangleCount) triangles, size \(cm.x, format: .fixed(precision: 1)) × \(cm.y, format: .fixed(precision: 1)) × \(cm.z, format: .fixed(precision: 1)) cm (x × y × z, y up)")
-        modelSize = mesh.size
-        try STLExporter.write(mesh, to: folder.stlURL)
-        Log.files.notice("foot.stl written: \(ScanFolder.sizeInMB(of: folder.stlURL), format: .fixed(precision: 1)) MB at \(folder.stlURL.path, privacy: .public)")
-        analyzeArch(mesh)
+    /// The work runs off the main actor so the "Saving model" screen keeps drawing.
+    private func exportSTL(from folder: ScanFolder) async throws {
+        let (size, arch) = try await Task.detached(priority: .userInitiated) {
+            let mesh = try FootMesh.load(from: folder.modelURL)
+            let cm = mesh.size * 100
+            Log.reconstruction.notice("Mesh: \(mesh.vertices.count) vertices, \(mesh.triangleCount) triangles, size \(cm.x, format: .fixed(precision: 1)) × \(cm.y, format: .fixed(precision: 1)) × \(cm.z, format: .fixed(precision: 1)) cm (x × y × z, y up)")
+            try STLExporter.write(mesh, to: folder.stlURL)
+            Log.files.notice("foot.stl written: \(ScanFolder.sizeInMB(of: folder.stlURL), format: .fixed(precision: 1)) MB at \(folder.stlURL.path, privacy: .public)")
+            return (mesh.size, Self.analyzeArch(mesh))
+        }.value
+        modelSize = size
+        self.arch = arch
     }
 
     /// A failed measurement doesn't fail the scan: the model and STL are still good, the viewer just says so.
-    private func analyzeArch(_ mesh: FootMesh) {
+    nonisolated private static func analyzeArch(_ mesh: FootMesh) -> Result<FootArchAnalysis, any Error> {
         let result = Result { try FootArchAnalyzer.analyze(mesh) }
-        arch = result
         switch result {
         case .success(let arch):
             Log.analysis.notice("Arch height \(arch.archHeightMM, format: .fixed(precision: 1)) mm → \(arch.archType.rawValue, privacy: .public) (Arch Index \(arch.archIndex, format: .fixed(precision: 3))); sole tilt \(arch.soleTiltDegrees, format: .fixed(precision: 1))°\(arch.isSoleUneven ? " UNEVEN" : "", privacy: .public); foot \(arch.footLengthCM, format: .fixed(precision: 1)) × \(arch.footWidthCM, format: .fixed(precision: 1)) cm")
         case .failure(let error):
             Log.analysis.error("Arch analysis failed: \(String(describing: error), privacy: .public)")
         }
+        return result
     }
 
     private func failProcessing(_ message: String) {

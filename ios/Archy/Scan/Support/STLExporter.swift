@@ -8,7 +8,7 @@ import simd
 
 /// Writes a `FootMesh` as a binary STL in millimeters with Z up, the convention slicers and CAD tools expect.
 /// (STL has no unit field; millimeters is the de facto standard.)
-enum STLExporter {
+nonisolated enum STLExporter {
     static func write(_ mesh: FootMesh, to url: URL) throws {
         var data = Data(capacity: 84 + mesh.triangleCount * 50)
 
@@ -43,7 +43,7 @@ enum STLExporter {
     }
 }
 
-private extension Data {
+nonisolated private extension Data {
     mutating func appendLittleEndian<T: FixedWidthInteger>(_ value: T) {
         Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
     }
