@@ -27,7 +27,23 @@
           <button type="button" class="tile" data-example="1"><span class="name">Flatter arch</span></button>
           <button type="button" class="tile" data-example="2"><span class="name">Typical arch</span></button>
           <button type="button" class="tile" data-example="3"><span class="name">Higher arch</span></button>
-          <button type="button" class="tile" id="go-scan-example"><span class="name">Real iPhone scan</span></button>
+        </div>
+      </section>
+
+      <section class="group" aria-labelledby="h-scans">
+        <h2 id="h-scans" class="sr">Real foot scans</h2>
+        <div class="tiles">
+          <button type="button" class="tile" data-scan="ishaan"><span class="name">Ishaan's foot</span><span class="note">iPhone scan</span></button>
+          <button type="button" class="tile" data-scan="prakhar"><span class="name">Prakhar's foot</span><span class="note">iPhone scan</span></button>
+          <div class="tile panel" id="scan-drop">
+            <span class="name">Your foot scan</span>
+            <p class="note">Drop an STL file here, or pick one.</p>
+            <div class="controls">
+              <button type="button" id="scan-upload" class="btn primary">Upload scan</button>
+              <input type="file" id="scan-file" accept=".stl,.obj,.usdz" hidden />
+            </div>
+            <p id="scan-error" class="note" role="status" hidden></p>
+          </div>
         </div>
       </section>
 
@@ -51,15 +67,6 @@
               <select id="recorded" aria-label="Recorded walk, which person and foot"></select>
               <button type="button" id="go-recorded" class="btn">Watch</button>
             </div>
-          </div>
-          <div class="tile panel" id="scan-drop">
-            <span class="name">Your foot scan</span>
-            <p class="note">Drop an STL file here, or pick one.</p>
-            <div class="controls">
-              <button type="button" id="scan-upload" class="btn primary">Upload scan</button>
-              <input type="file" id="scan-file" accept=".stl,.obj,.usdz" hidden />
-            </div>
-            <p id="scan-error" class="note" role="status" hidden></p>
           </div>
           <div class="tile panel">
             <span class="name">Your sensors</span>

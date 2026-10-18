@@ -69,6 +69,7 @@ button.tile:hover { background: var(--card-02); border-color: var(--border-03); 
 .tile .note { margin-bottom: auto; }
 button.tile { min-height: 5.5rem; }
 button.tile .name { margin-top: auto; }
+button.tile .note { margin-bottom: 0; }
 .controls { display: flex; flex-wrap: wrap; gap: .5rem; width: 100%; margin-top: .5rem; }
 /* The select takes a full row when its option text would not fit beside the button, so labels are never clipped. */
 .controls select { flex: 1 1 15rem; }

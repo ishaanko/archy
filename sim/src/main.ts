@@ -15,7 +15,7 @@ import { differenceMap, templateOnGrid } from "./core/template"
 import type { FootType, Trial } from "./core/types"
 import { DISCLAIMER, readAhi, readArch } from "./core/verdict"
 import { loadCadwalk, loadFeet, loadInsoleData, loadTemplate, type CadStep } from "./data"
-import { connectDemoDevice, connectSerial, isSerialSupported, SENSOR_POSITIONS } from "./hardware"
+import { connectDemoDevice, connectSerial, isSerialSupported, SENSOR_NAMES, SENSOR_POSITIONS } from "./hardware"
 import type { LiveSensor } from "./hardware/types"
 import { InsoleScene } from "./view/scene"
 
@@ -277,6 +277,10 @@ function draw(): void {
   if (a.cop && session.trial) view.setCop(a.cop, mode === "frame" ? frame + 1 : session.trial.nFrames, el.cop.checked && !plain)
   else view.setCop(new Float32Array(0), 0, false)
   if (session.own) {
+    const { est, mode: m } = session.own
+    const walk = m === "with" ? est.withInsole : est.before
+    const n = est.spots.length
+    renderBars(SENSOR_NAMES, mode === "frame" ? walk.spotFrames.subarray(frame * n, (frame + 1) * n) : walk.spotPeaks, Math.max(1, ...est.before.spotPeaks))
     el.scrub.value = String(frame)
     el.time.textContent = `${Math.round((frame / session.trial!.fs) * 1000)} ms`
     el.live.textContent = `estimated, ${session.own.weight} kg, ${mode === "frame" ? `frame ${frame + 1}/${session.trial!.nFrames}` : mode === "peak" ? `peak ${Math.round(a.peakMax)} kPa` : "load share vs healthy mean"}`
@@ -290,20 +294,23 @@ function draw(): void {
   dirty = false
 }
 
-/** Live sensor bars (friendly names) and the step counter. */
-function renderLive(): void {
-  const s = session!, live = tracker!
-  const scale = live.scale()
-  const names = s.device!.sensorNames
+/** One bar per named sensor spot (kPa, bar length relative to `scale`), mirrored as numbers in Details. */
+function renderBars(names: readonly string[], values: ArrayLike<number>, scale: number): void {
   if (el.bars.children.length !== names.length)
     el.bars.innerHTML = names.map((n) => `<li><span>${n}</span><span class="bar" aria-hidden="true"><i></i></span><output></output></li>`).join("")
   const lis = el.bars.children
   for (let k = 0; k < names.length; k++) {
-    const v = live.latest[k] ?? 0
+    const v = values[k] ?? 0
     ;(lis[k].querySelector("i") as HTMLElement).style.width = `${Math.min(100, (v / scale) * 100)}%`
     lis[k].querySelector("output")!.textContent = String(Math.round(v))
   }
-  el.values.innerHTML = names.map((n, k) => `<li><span>${n}</span><span>${Math.round(live.latest[k] ?? 0)}</span></li>`).join("")
+  el.values.innerHTML = names.map((n, k) => `<li><span>${n}</span><span>${Math.round(values[k] ?? 0)}</span></li>`).join("")
+}
+
+/** Live sensor bars (friendly names) and the step counter. */
+function renderLive(): void {
+  const live = tracker!
+  renderBars(session!.device!.sensorNames, live.latest, live.scale())
   el.liveStatus.textContent = live.ready ? `Got it: ${live.steps} steps seen.` : `Walk a few steps. ${Math.min(live.steps, live.needed)} of ${live.needed} steps seen.`
 }
 
@@ -413,9 +420,10 @@ function enter(s: Session, model?: PressureModel): void {
   el.who.textContent = s.title
   el.play.hidden = s.trial === null
   el.play.textContent = playing ? "Pause" : "Play"
-  el.liveBox.hidden = s.device === null
+  el.liveBox.hidden = s.device === null && !s.own
+  el.liveStatus.hidden = s.device === null
   el.scrub.hidden = s.device !== null
-  el.bars.innerHTML = ""
+  el.bars.innerHTML = el.values.innerHTML = ""
   el.showFoot.checked = true
   el.variantBox.hidden = !s.variants
   const plateRadio = document.querySelector<HTMLInputElement>('input[name="variant"][value="plate"]')
@@ -461,7 +469,7 @@ function enter(s: Session, model?: PressureModel): void {
 function startScan(result: ScanResult, title: string, fileLabel: string): void {
   const own = buildOwn(result, Number(el.weight.value) || 70, "before")
   const walk = own.est
-  const trial: Trial = { id: "own-scan", label: title, source: "synthetic", side: "left", fs: walk.fs, nFrames: walk.nFrames, sensors: [], frames: new Float32Array(0) }
+  const trial: Trial = { id: "own-scan", label: title, source: "synthetic", side: "left", fs: walk.fs, nFrames: walk.nFrames, sensors: walk.spots, frames: new Float32Array(0) }
   enter({ title, side: result.side, footKey: "typical", trial, scan: fileLabel, device: null, own })
 }
 
@@ -490,7 +498,10 @@ async function loadScanUrl(url: string, title: string): Promise<void> {
     el.scanError.textContent = e instanceof Error ? e.message : String(e)
   }
 }
-const EXAMPLE_SCAN_URL = `${import.meta.env.BASE_URL}models/scan-example.stl`
+/** Bundled iPhone LiDAR scans, shared with permission (public/models/scan-<key>.stl). */
+const SCANS = { ishaan: "Ishaan's foot", prakhar: "Prakhar's foot" } as const
+type ScanKey = keyof typeof SCANS
+const loadExampleScan = (key: ScanKey) => loadScanUrl(`${import.meta.env.BASE_URL}models/scan-${key}.stl`, SCANS[key])
 
 function startExample(n: string): void {
   const ex = EXAMPLES.find((e) => e.n === n)
@@ -559,7 +570,7 @@ $("connect").addEventListener("click", async () => {
     el.connectError.textContent = `Could not connect: ${e instanceof Error ? e.message : String(e)}`
   }
 })
-$("go-scan-example").addEventListener("click", () => void loadScanUrl(EXAMPLE_SCAN_URL, "Real iPhone scan"))
+document.querySelectorAll<HTMLButtonElement>("[data-scan]").forEach((b) => b.addEventListener("click", () => void loadExampleScan(b.dataset.scan as ScanKey)))
 $("scan-upload").addEventListener("click", () => el.scanFile.click())
 const pickScan = async (file: File | undefined) => {
   if (file) await loadScan(file.name, await file.arrayBuffer(), "Your foot scan")
@@ -660,9 +671,9 @@ else if (q.get("live") === "demo") {
   const t = (q.get("foot") ?? "normal") as FootType
   startLive(connectDemoDevice((q.get("side") as "left" | "right") ?? "left", t), footKeyFor(t))
 }
-// ?scan=example loads the bundled scan; in dev builds ?scan=<url> loads any STL (for screenshots).
-const scanParam = q.get("scan")
-if (scanParam === "example") await loadScanUrl(EXAMPLE_SCAN_URL, "Real iPhone scan")
+// ?scan=ishaan|prakhar loads a bundled scan (example = ishaan, the original link); in dev builds ?scan=<url> loads any STL.
+const scanParam = q.get("scan") === "example" ? "ishaan" : q.get("scan")
+if (scanParam && scanParam in SCANS) await loadExampleScan(scanParam as ScanKey)
 else if (scanParam && import.meta.env.DEV) await loadScanUrl(scanParam, "Your foot scan")
 if (session) {
   if (q.has("est") && currentOwn()) {
