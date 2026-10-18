@@ -13,7 +13,10 @@ enum ViewerSource {
     func loadEntity() async throws -> Entity {
         let floorNormal = analysis?.floorNormal
         return switch self {
-        case .scan(let folder, _, _): try FootModel.entity(for: FootMesh.load(from: folder.modelURL), floorNormal: floorNormal)
+        // Parsed off the main actor so the viewer doesn't freeze while it opens.
+        case .scan(let folder, _, _): try FootModel.entity(for: await Task.detached(priority: .userInitiated) {
+            try FootMesh.load(from: folder.modelURL)
+        }.value, floorNormal: floorNormal)
         case .saved(let opened): try FootModel.entity(for: opened.mesh, floorNormal: floorNormal)
         case .sample(let sample): try FootModel.entity(for: sample.mesh, floorNormal: floorNormal)
         }

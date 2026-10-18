@@ -9,7 +9,7 @@ import simd
 
 /// The reconstructed foot as plain triangles in world space, in the USDZ's units (meters, Y up).
 /// The STL export, the arch analysis and the viewer all read it.
-struct FootMesh {
+nonisolated struct FootMesh {
     var vertices: [SIMD3<Float>]
     /// Three vertex indices per triangle.
     var indices: [UInt32]

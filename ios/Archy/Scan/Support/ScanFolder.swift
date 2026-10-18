@@ -10,7 +10,7 @@ import os
 /// Images are kept after reconstruction so the scan can be reprocessed on a Mac. The checkpoint
 /// (the biggest part, 300–650 MB) only helps while the scan's flow runs, so it's deleted once the
 /// model is built or the flow ends.
-struct ScanFolder {
+nonisolated struct ScanFolder {
     let root: URL
 
     var images: URL { root.appending(path: "Images", directoryHint: .isDirectory) }
