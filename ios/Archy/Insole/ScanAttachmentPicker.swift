@@ -13,37 +13,34 @@ struct ScanAttachmentPicker: View {
     private static let allowedExtensions: Set<String> = ["stl", "obj", "ply", "glb", "usdz"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Optional \(side.rawValue) foot scan", systemImage: "cube.transparent")
-                .font(.headline)
-            Text("STL, OBJ, PLY, GLB or USDZ · up to 20 MB")
-                .font(.subheadline).foregroundStyle(Color.archySecondary)
-            if let attachment {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(attachment.filename).font(.subheadline.weight(.medium))
-                        .lineLimit(3).textSelection(.enabled)
-                    Text(ByteCountFormatter.string(fromByteCount: Int64(attachment.bytes.count), countStyle: .file))
-                        .font(.caption).foregroundStyle(Color.archySecondary)
-                }.accessibilityElement(children: .combine)
-                Text("Included in your export.")
-                    .font(.subheadline.weight(.medium))
-                Text("Check this is the correct foot. Calibration and fit need specialist review.")
-                    .font(.footnote).foregroundStyle(Color.archySecondary)
-            }
-            HStack {
-                Button(attachment == nil ? "Choose scan file" : "Replace scan file") { importing = true }
-                    .accessibilityIdentifier("scan.choose")
-                if attachment != nil {
-                    Spacer()
-                    Button("Remove", role: .destructive) { attachment = nil; errorMessage = nil }
-                        .accessibilityIdentifier("scan.remove")
+        VStack(alignment: .leading, spacing: Space.sm) {
+            HStack(spacing: Space.md) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if let attachment {
+                        Text(attachment.filename).font(.body).lineLimit(2)
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(attachment.bytes.count), countStyle: .file))
+                            .font(.footnote).foregroundStyle(.inkSecondary)
+                    } else {
+                        Text("Attach a \(side.title.lowercased()) foot scan").font(.body)
+                        Text("STL, OBJ, PLY, GLB or USDZ, up to 20 MB").font(.footnote).foregroundStyle(.inkSecondary)
+                    }
                 }
-            }.font(.subheadline.weight(.medium)).tint(Color.archyAccent)
+                .accessibilityElement(children: .combine)
+                Spacer(minLength: Space.sm)
+                if attachment != nil {
+                    Button("Remove") { attachment = nil; errorMessage = nil }
+                        .buttonStyle(.archyGhost)
+                }
+                Button(attachment == nil ? "Choose" : "Replace") { importing = true }
+                    .buttonStyle(.archyGhost)
+                    .accessibilityIdentifier("scan.choose")
+            }
             if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.circle")
-                    .font(.footnote).foregroundStyle(Color.archyAccent)
+                Text(errorMessage).font(.footnote).foregroundStyle(.negative)
             }
         }
+        .animation(Motion.snappy, value: attachment)
+        .animation(Motion.snappy, value: errorMessage)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data]) { (result: Result<URL, Error>) in
             switch result {
             case .success(let url): read(url)
