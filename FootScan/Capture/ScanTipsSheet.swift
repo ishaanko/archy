@@ -12,9 +12,10 @@ struct ScanTipsSheet: View {
 
     private static let tips: [(symbol: String, text: String)] = [
         ("person.2.fill", "Have a friend hold the phone. You stand still."),
+        ("sparkles", "Wipe the back camera lenses clean."),
         ("figure.stand", "Barefoot, with trousers rolled above the ankle."),
         ("shoeprints.fill", "Weight on both feet, on a plain, non-shiny floor."),
-        ("sun.max.fill", "Bright, even light."),
+        ("sun.max.fill", "Bright, even light, but not direct sun."),
         ("arrow.triangle.2.circlepath", "Two slow laps: knee height, then near the floor."),
         ("timer", "Hold still for about 2 minutes."),
     ]

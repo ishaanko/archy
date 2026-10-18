@@ -76,7 +76,8 @@ struct CaptureControls: View {
         }
     }
 
-    /// The session's most important warning, or a nudge when no photo has been taken for a while.
+    /// The session's most important warning, a nudge when no photo has been taken for a while,
+    /// or, while aiming with nothing wrong, a reminder to clean the lens.
     private var warningBanner: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             if let text = warningText(now: context.date) {
@@ -87,6 +88,14 @@ struct CaptureControls: View {
                     .padding(.vertical, 8)
                     .background(.yellow, in: Capsule())
                     .transition(.opacity)
+            } else if model.phase == .ready, !model.isShowingTips {
+                Label(FootGuidance.cleanLens, systemImage: "sparkles")
+                    .font(.callout.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: warningText(now: .now))
@@ -95,7 +104,10 @@ struct CaptureControls: View {
     private func warningText(now: Date) -> String? {
         guard [.ready, .detecting, .capturing].contains(model.phase),
               !session.isPaused, !model.isPassComplete, !model.isShowingTips else { return nil }
-        if let warning = FootGuidance.warning(feedback: session.feedback, tracking: session.cameraTracking) {
+        // "Move out of the sun" can only be acted on before capture starts; mid-lap it would ruin the scan.
+        let tooBright = model.brightness.isTooBright && model.phase != .capturing
+        if let warning = FootGuidance.warning(feedback: session.feedback, tracking: session.cameraTracking,
+                                              tooBright: tooBright) {
             return warning
         }
         if model.phase == .capturing, now.timeIntervalSince(model.lastPhotoDate) > stallSeconds {

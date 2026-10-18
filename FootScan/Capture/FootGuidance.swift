@@ -47,7 +47,8 @@ enum FootGuidance {
 
     /// The most important live problem right now, or nil if capture is going fine.
     static func warning(feedback: Set<ObjectCaptureSession.Feedback>,
-                        tracking: ObjectCaptureSession.Tracking) -> String? {
+                        tracking: ObjectCaptureSession.Tracking,
+                        tooBright: Bool) -> String? {
         switch tracking {
         case .notAvailable:
             return "Tracking lost. Move slowly back toward the foot."
@@ -70,9 +71,16 @@ enum FootGuidance {
             (.objectTooFar, "Too far. Move closer to the foot."),
             (.environmentLowLight, "More light would help"),
         ]
-        return messages.first { feedback.contains($0.0) }?.1
+        if let message = messages.first(where: { feedback.contains($0.0) })?.1 {
+            return message
+        }
+        // Lowest priority. The session has no "too bright" feedback; BrightnessMonitor estimates it.
+        return tooBright ? "Too bright. Move out of direct sunlight." : nil
     }
 
     /// Shown when no new photo has been taken for a while and nothing else explains why.
     static let keepMoving = "Keep moving around the foot. No new photos for a few seconds."
+
+    /// Shown while aiming, before the first photo. A smudged lens makes hazy photos and a blurry model.
+    static let cleanLens = "Wipe the camera lens first for sharper photos"
 }
