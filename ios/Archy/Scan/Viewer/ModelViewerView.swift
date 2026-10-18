@@ -4,13 +4,13 @@ import os
 
 /// What the viewer shows: a finished scan on disk, or the bundled sample.
 enum ViewerSource {
-    case scan(ScanFolder, size: SIMD3<Float>?)
+    case scan(ScanFolder, size: SIMD3<Float>?, arch: FootArchAnalysis?)
     case sample(SampleScan)
 
     /// The model as an entity in meters: the reconstructed USDZ, or the sample's mesh.
     func loadEntity() async throws -> Entity {
         switch self {
-        case .scan(let folder, _): try await Entity(contentsOf: folder.modelURL)
+        case .scan(let folder, _, _): try await Entity(contentsOf: folder.modelURL)
         case .sample(let sample): try sample.makeEntity()
         }
     }
@@ -18,7 +18,7 @@ enum ViewerSource {
     /// Bounding box in meters, Y up.
     var size: SIMD3<Float>? {
         switch self {
-        case .scan(_, let size): size
+        case .scan(_, let size, _): size
         case .sample(let sample): sample.size
         }
     }
@@ -40,8 +40,16 @@ enum ViewerSource {
     /// Where the files ended up, for real scans only.
     var filesNote: String? {
         switch self {
-        case .scan(let folder, _): "Also in Files › archy › Scans › \(folder.root.lastPathComponent)"
+        case .scan(let folder, _, _): "Also in Files › archy › Scans › \(folder.root.lastPathComponent)"
         case .sample: nil
+        }
+    }
+
+    /// Flat or normal arch, measured from the sole; nil when the scan's footprint couldn't be read.
+    var arch: FootArchAnalysis? {
+        switch self {
+        case .scan(_, _, let arch): arch
+        case .sample(let sample): sample.arch
         }
     }
 
@@ -75,6 +83,15 @@ struct ModelViewerView: View {
 
             if let size = source.size {
                 dimensions(for: size)
+            }
+
+            if let arch = source.arch {
+                archCard(arch)
+                    .reveal(4)
+            } else if source.isRealScan {
+                Text("Couldn't measure the arch on this scan. The model and STL are fine.")
+                    .font(.footnote)
+                    .foregroundStyle(.inkTertiary)
             }
 
             HStack(spacing: Space.md) {
@@ -128,12 +145,13 @@ struct ModelViewerView: View {
         .accessibilityLabel("3D model of your foot. Drag to rotate, pinch to zoom.")
     }
 
-    /// Length, width and height in cm. Y is up. Object Capture doesn't line the foot up with x or z
-    /// consistently, so the longer horizontal side is the length.
+    /// Length, width and height in cm. Length and width come from the sole when the arch was measured, since the
+    /// bounding box can include the lower leg. Otherwise: Y is up, and Object Capture doesn't line the foot up
+    /// with x or z consistently, so the longer horizontal side is the length.
     private func dimensions(for size: SIMD3<Float>) -> some View {
         let values: [(label: String, cm: Double)] = [
-            ("Length", Double(max(size.x, size.z)) * 100),
-            ("Width", Double(min(size.x, size.z)) * 100),
+            ("Length", source.arch?.footLengthCM ?? Double(max(size.x, size.z)) * 100),
+            ("Width", source.arch?.footWidthCM ?? Double(min(size.x, size.z)) * 100),
             ("Height", Double(size.y) * 100),
         ]
         return HStack(alignment: .top, spacing: Space.lg) {
@@ -157,10 +175,37 @@ struct ModelViewerView: View {
         }
     }
 
+    /// Flat or normal, with the footprint it was read from and how far the inner arch lifts.
+    private func archCard(_ arch: FootArchAnalysis) -> some View {
+        HStack(alignment: .center, spacing: Space.lg) {
+            FootprintView(footprint: arch.footprint)
+                .frame(width: 96, height: 136)
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text(arch.archType == .flat ? "Flat arch" : "Normal arch")
+                    .display(.headline)
+                HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
+                    MetricText(value: revealed ? arch.archHeightMM : 0, fractionDigits: 1, style: .title)
+                    Text("mm lift")
+                        .font(.footnote)
+                        .foregroundStyle(.inkTertiary)
+                }
+                Text("Arch Index \(arch.archIndex, format: .number.precision(.fractionLength(2)))")
+                    .font(.footnote)
+                    .foregroundStyle(.inkSecondary)
+                Text("A screening estimate, not a diagnosis.")
+                    .font(.caption)
+                    .foregroundStyle(.inkTertiary)
+            }
+            Spacer(minLength: 0)
+        }
+        .surface(padding: Space.md)
+        .accessibilityElement(children: .combine)
+    }
+
     /// Zips the photos (once per scan) so the share sheet can AirDrop STL, USDZ and photos together.
     /// The sample only offers its STL.
     private func prepareShareItems() async {
-        guard case .scan(let folder, _) = source else {
+        guard case .scan(let folder, _, _) = source else {
             if case .sample(let sample) = source { shareItems = [sample.stlURL] }
             return
         }

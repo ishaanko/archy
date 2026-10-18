@@ -30,8 +30,13 @@ struct CaptureOverlay: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        // Text sits at the top: the middle and bottom of the feed are where the foot, the box,
+        // and Apple's coverage ring and point cloud are drawn.
         VStack(spacing: Space.md) {
             topBar
+            if !isPassComplete {
+                instructionCard
+            }
             bannerView
             Spacer()
             if isPassComplete {
@@ -112,6 +117,26 @@ struct CaptureOverlay: View {
         .accessibilityLabel("\(FootGuidance.lapLabel(lap)), \(shots) photos")
     }
 
+    /// The current step, with the box-trim sketch beside it while detecting.
+    private var instructionCard: some View {
+        HStack(spacing: Space.md) {
+            if phase == .detecting {
+                BoxTrimDiagram()
+                    .frame(maxWidth: 110)
+            }
+            Text(instruction)
+                .font(.subheadline.weight(.medium))
+                .multilineTextAlignment(phase == .detecting ? .leading : .center)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+                .animation(Motion.smooth.reduced(reduceMotion), value: instruction)
+        }
+        .padding(.horizontal, Space.lg)
+        .padding(.vertical, Space.md)
+        .frame(maxWidth: 380)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+    }
+
     /// A calm line that springs in and out: the session's top warning, or the lens reminder.
     private var bannerView: some View {
         VStack {
@@ -132,20 +157,7 @@ struct CaptureOverlay: View {
 
     // MARK: - Bottom
 
-    private var bottomControls: some View {
-        VStack(spacing: Space.lg) {
-            if phase == .detecting {
-                BoxTrimDiagram()
-            }
-            Text(instruction)
-                .font(.callout.weight(.medium))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
-                .contentTransition(.opacity)
-                .animation(Motion.smooth.reduced(reduceMotion), value: instruction)
-            buttons
-        }
-    }
+    private var bottomControls: some View { buttons }
 
     @ViewBuilder
     private var buttons: some View {
