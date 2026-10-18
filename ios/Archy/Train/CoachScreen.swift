@@ -131,10 +131,12 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
         }
         // The setup finished, or read aloud was turned off, while running: start the 3-2-1.
         .onChange(of: running && briefing && !voice.isSpeaking) { _, heard in if heard { briefing = false } }
+        // Hands-free practice: keep the screen from locking only while it runs.
+        .onChange(of: running, initial: true) { _, awake in UIApplication.shared.isIdleTimerDisabled = awake }
         .onChange(of: scenePhase) { _, value in if value != .active { stop() } }
         .onChange(of: narration) { _, enabled in if enabled { prefetchCues() } else { voice.stop() } }
         .onAppear { if narration { prefetchCues() } }
-        .onDisappear { stop() }
+        .onDisappear { stop(); UIApplication.shared.isIdleTimerDisabled = false }
     }
 
     private var coach: some View {
