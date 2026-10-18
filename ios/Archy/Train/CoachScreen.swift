@@ -127,7 +127,8 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
             }
         }
         .onChange(of: scenePhase) { _, value in if value != .active { stop() } }
-        .onChange(of: narration) { _, enabled in if !enabled { voice.stop() } }
+        .onChange(of: narration) { _, enabled in if enabled { prefetchCues() } else { voice.stop() } }
+        .onAppear { if narration { prefetchCues() } }
         .onDisappear { stop() }
     }
 
@@ -247,10 +248,15 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
 
     private func stop() { running = false; voice.stop() }
 
+    /// Saves every cue for this session up front. Cues are timed, so they play from the cache or not at all.
+    private func prefetchCues() {
+        voice.prefetch([program.setup, program.hold, program.rest, program.complete].map(\.script))
+    }
+
     private func announce() {
         if audioCues { AudioServicesPlaySystemSound(1104) }
         guard narration, let line = program.narration(phase) else { return }
-        voice.readScript(line.script, fallback: line.text)
+        voice.readScript(line.script, fallback: line.text, timed: true)
     }
 }
 
