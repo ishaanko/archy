@@ -1,5 +1,21 @@
 # Archy narration proxy demo
 
+## Live on the archy Vercel project
+
+- Endpoint: `https://tryarchy.vercel.app/api/narrate`. `POST` narrates; `GET` returns `{"configured": true|false}`.
+- Code: `sim/api/narrate.mjs` is a thin Vercel function that imports `createHandler` from `server.mjs` here. Scripts, limits and auth live only in `server.mjs`.
+- To change what Grok says, edit `narrationCatalog` in `server.mjs`, run `node --test server.test.mjs`, and push to `main`. Vercel redeploys when `sim/` or `services/voice/` changes.
+- Secrets are Vercel production env vars marked sensitive: `XAI_API_KEY` and `ARCHY_PROXY_TOKEN`. Get the proxy token from Ishaan privately; never commit either. Preview deployments have no secrets, so narration only works on production.
+- In the app: Accessibility, Grok connection, enter the endpoint and the proxy token, save, then enable Grok.
+- Check it end to end (charges a small xAI request):
+
+  ```sh
+  curl -sS -o /tmp/welcome.mp3 -w '%{http_code} %{content_type}\n' -X POST https://tryarchy.vercel.app/api/narrate \
+    -H "Authorization: Bearer $ARCHY_PROXY_TOKEN" -H 'Content-Type: application/json' -d '{"script_id":"welcome"}'
+  ```
+
+## Run locally
+
 Requires Node 20 or later. No dependencies. Run `node server.mjs` and test with `node --test server.test.mjs`.
 
 ## Connecting an existing host
