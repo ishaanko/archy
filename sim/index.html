@@ -4,13 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <title>Foot arch check</title>
+    <title>archy | Check your arch. Print your insole.</title>
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/brand/favicon_32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/brand/favicon_180.png" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="start">
       <header class="topbar">
-        <span class="brand">Arch check</span>
+        <a class="logo" href="./" aria-label="archy home"><!--archy:logo--></a>
         <a class="link" href="./sandbox.html">Sensor sandbox</a>
       </header>
       <div class="hero">
@@ -74,7 +77,10 @@
 
     <main id="app" hidden>
       <header class="appbar">
-        <button type="button" id="back" class="btn ghost">Back</button>
+        <div class="appbrand">
+          <a class="logo mark" href="./" aria-label="archy home"><!--archy:mark--></a>
+          <button type="button" id="back" class="btn ghost">Back</button>
+        </div>
         <nav class="seg" aria-label="Steps">
           <button type="button" data-screen="watch">Watch</button>
           <button type="button" data-screen="result">Result</button>

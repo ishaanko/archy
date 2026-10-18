@@ -1,4 +1,4 @@
-# Insole pressure simulation
+# archy: insole pressure simulation
 
 Browser-only foot arch screening demo: pressure sensors -> heatmap -> arch result in plain words -> printable insole, with a scanned 3D foot walking on it. No server, nothing uploaded.
 
@@ -59,3 +59,5 @@ Schuster et al. 2024, Proc R Soc B, 3D foot scans, doi 10.5061/dryad.g4f4qrfwt (
 ## Clinic plate steps (CAD WALK)
 
 Booth et al., "The CAD WALK Healthy Controls Dataset" (Zenodo 10.5281/zenodo.1265420) and the hallux valgus pre-surgery set (Zenodo 3406523), IEEE ISBI 2019. RSscan plate, 7.62 x 5.08 mm sensors, 500 Hz healthy / 200 Hz hallux valgus. `scripts/convert_cadwalk.py` keeps 5 steps (3 healthy, 2 hallux valgus with the flattest midfoot), aligns them to the canonical frame (orientation per side from a unanimous vote over all feet), resamples to a 5 mm grid at 50 Hz (public/data/cadwalk.json, about 550 KB). Units are undocumented; values are read as N/cm2 and stored as kPa. License note: the dataset Readme says CC BY-NC-SA, the task notes said CC BY 4.0, check before commercial use. The kit view samples the same step at the six positions in `src/hardware/layout.ts` (5-point patch mean), then reconstructs with `SPARSE_KERNEL`. Dynamic plate footprints give lower arch indices than the cutoffs (healthy median 0.15), so "typical" and "higher" steps were picked near arch index 0.235 and 0.15. Future work: UNB StepUP-P150 (50+ GB, not downloaded).
+
+Fonts: Instrument Sans (headlines and logo wordmark), SIL OFL 1.1, license in `public/brand/OFL_InstrumentSans.txt`.
