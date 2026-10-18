@@ -15,3 +15,11 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 .swiftpm/
+
+# Local Apple sample (not part of this app)
+reference/
+
+# Local editor and agent settings
+.claude/
+.cursor/
+CLAUDE.md
