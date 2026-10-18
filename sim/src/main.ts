@@ -412,7 +412,10 @@ function setScreen(next: Screen): void {
 function stopSession(): void {
   unsub?.()
   unsub = null
-  void session?.device?.disconnect()
+  session?.device?.disconnect().catch((e: unknown) => {
+    el.connectError.hidden = false
+    el.connectError.textContent = `Could not disconnect: ${e instanceof Error ? e.message : String(e)}`
+  })
   tracker = liveModel = null
 }
 
