@@ -49,11 +49,14 @@ final class ScanFlowModel {
     nonisolated static let minimumShots = 10
 
     let isSupported = ObjectCaptureSession.isSupported
+    /// "Too bright" check for the capture screens.
+    let brightness = BrightnessMonitor()
 
     private var sessionTasks: [Task<Void, Never>] = []
 
     init() {
         Log.flow.notice("App launched. ObjectCaptureSession.isSupported = \(self.isSupported)")
+        ScanFolder.cleanUp()
         #if DEBUG
         openScanFromLaunchArgument()
         #endif
@@ -85,6 +88,14 @@ final class ScanFlowModel {
             return
         }
         guard session == nil, phase == .ready else { return }
+
+        // Check before creating a folder: the session fails right away below 4 GB free.
+        let freeBytes = ScanFolder.freeBytes()
+        Log.files.notice("Free space: \(freeBytes.map(ScanFolder.formatted) ?? "unknown", privacy: .public)")
+        if let freeBytes, freeBytes < ScanFolder.requiredFreeBytes {
+            fail(ScanFolder.storageMessage())
+            return
+        }
 
         let folder: ScanFolder
         do {
@@ -215,13 +226,14 @@ final class ScanFlowModel {
             do {
                 try await reconstructor.run()
                 try exportSTL(from: folder)
+                folder.removeCheckpoint()
                 self.reconstructor = nil
                 phase = .viewing
             } catch is CancellationError {
                 failProcessing("Processing was cancelled. Your photos are still saved.")
             } catch {
                 Log.reconstruction.error("Reconstruction failed: \(String(describing: error), privacy: .public)")
-                failProcessing("Building the model failed: \(error.localizedDescription)")
+                failProcessing(describe(error, as: "Building the model failed"))
             }
         }
     }
@@ -264,6 +276,12 @@ final class ScanFlowModel {
         sessionTasks.append(Task {
             for await feedback in session.feedbackUpdates {
                 Log.capture.info("Feedback: \(String(describing: feedback), privacy: .public)")
+            }
+        })
+        sessionTasks.append(Task { [weak self] in
+            while !Task.isCancelled {
+                self?.brightness.sample()
+                try? await Task.sleep(for: .seconds(1))
             }
         })
         sessionTasks.append(Task {
@@ -318,8 +336,31 @@ final class ScanFlowModel {
         } else {
             Log.capture.error("Session failed: \(String(describing: error), privacy: .public)")
             tearDownSession()
-            fail("Capture failed: \(error.localizedDescription)")
+            // Don't leave an empty folder behind when the session fails before taking any photos.
+            if let folder, folder.imageCount() == 0 {
+                folder.delete()
+                self.folder = nil
+            }
+            fail(describe(error, as: "Capture failed"))
         }
+    }
+
+    /// User-facing text for a framework error. Calls the concrete types' own descriptions, because
+    /// `any Error` falls back to "The operation couldn't be completed (… error 1)".
+    private func describe(_ error: Error, as context: String) -> String {
+        if let captureError = error as? ObjectCaptureSession.Error {
+            if case .insufficientStorage(let required) = captureError {
+                return ScanFolder.storageMessage(requiredBytes: required)
+            }
+            return "\(context): \(captureError.localizedDescription)"
+        }
+        if let photogrammetryError = error as? PhotogrammetrySession.Error {
+            if case .insufficientStorage(let required) = photogrammetryError {
+                return ScanFolder.storageMessage(requiredBytes: required)
+            }
+            return "\(context): \(photogrammetryError.localizedDescription)"
+        }
+        return "\(context): \(error.localizedDescription)"
     }
 
     private func fail(_ message: String) {
@@ -330,6 +371,7 @@ final class ScanFlowModel {
     private func tearDownSession() {
         sessionTasks.forEach { $0.cancel() }
         sessionTasks.removeAll()
+        brightness.reset()
         session = nil
         detectionFailed = false
         isPassComplete = false
