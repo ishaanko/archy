@@ -1,21 +1,24 @@
 import { templateAt, type Template } from "./template"
 import type { FootType, Point, Trial } from "./types"
 
-const STANCE_SECONDS = 0.65
-const PEAK_KPA = 180 // synthetic peaks are rescaled to this, close to the FSR data
+export const STANCE_SECONDS = 0.65
 
-const gauss = (x: number, c: number, s: number) => Math.exp(-((x - c) ** 2) / (2 * s * s))
+export const gauss = (x: number, c: number, s: number) => Math.exp(-((x - c) ** 2) / (2 * s * s))
 
-/** Spatial scale on the MUN104 mean peak map that makes each foot type. Normal is the template itself;
- *  flat adds medial midfoot loading; high arch suppresses the midfoot band. */
-function footShape(type: FootType, template: Template, peakRef: number) {
+/** Spatial scale on the MUN104 mean peak map. `flatness` 0 is the template itself; toward +1 it adds medial midfoot
+ *  loading (flat), toward -1 it suppresses the midfoot band (high arch). */
+export function archShape(flatness: number, template: Template, peakRef: number) {
   return (x: number, y: number): number => {
     const base = templateAt(template, x, y)
-    if (type === "flat") return base + 0.4 * peakRef * gauss(x, 17, 9) * gauss(y, 92, 24)
-    if (type === "high arch") return base * (1 - 0.9 * gauss(y, 92, 28))
-    return base
+    if (flatness > 0) return base + 0.4 * flatness * peakRef * gauss(x, 17, 9) * gauss(y, 92, 24)
+    return base * (1 - -flatness * 0.9 * gauss(y, 92, 28))
   }
 }
+
+const footShape = (type: FootType, template: Template, peakRef: number) => archShape(type === "flat" ? 1 : type === "high arch" ? -1 : 0, template, peakRef)
+
+/** Typical peak pressure of the synthetic examples at 70 kg, close to the FSR data. */
+export const PEAK_KPA = 180
 
 /** Time (0..1 of stance) at which a spot at distance y from the heel is loaded most: heel strike, midstance, push-off, toe off. */
 export function peakTime(y: number): number {

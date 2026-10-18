@@ -27,6 +27,7 @@
           <button type="button" class="tile" data-example="1"><span class="name">Flatter arch</span></button>
           <button type="button" class="tile" data-example="2"><span class="name">Typical arch</span></button>
           <button type="button" class="tile" data-example="3"><span class="name">Higher arch</span></button>
+          <button type="button" class="tile" id="go-scan-example"><span class="name">Real iPhone scan</span></button>
         </div>
       </section>
 
@@ -51,8 +52,16 @@
               <button type="button" id="go-recorded" class="btn">Watch</button>
             </div>
           </div>
+          <div class="tile panel" id="scan-drop">
+            <span class="name">Your foot scan</span>
+            <p class="note">Drop an STL file here, or pick one.</p>
+            <div class="controls">
+              <button type="button" id="scan-upload" class="btn primary">Upload scan</button>
+              <input type="file" id="scan-file" accept=".stl,.obj,.usdz" hidden />
+            </div>
+            <p id="scan-error" class="note" role="status" hidden></p>
+          </div>
           <div class="tile panel">
-            
             <span class="name">Your sensors</span>
             <fieldset class="seg" aria-label="Which foot?">
               <label><input type="radio" name="side" value="left" checked /><span>Left</span></label>
@@ -118,6 +127,7 @@
             <div class="labels"><span>Lower</span><span>Typical</span><span>Higher</span></div>
           </div>
           <p id="meaning"></p>
+          <p id="sole-note" hidden></p>
           <p id="disclaimer"></p>
           <button type="button" id="to-insole" class="btn primary wide">See your insole</button>
         </section>
@@ -129,11 +139,20 @@
           <button type="button" id="download" class="btn primary wide">Download STL for 3D printing</button>
         </section>
 
+        <div id="est-box" hidden>
+          <fieldset class="seg" aria-label="Estimated pressure">
+            <label><input type="radio" name="est" value="before" checked /><span>Before</span></label>
+            <label><input type="radio" name="est" value="with" /><span>With insole</span></label>
+          </fieldset>
+          <p id="est-text"></p>
+        </div>
+
         <details id="details">
           <summary>Details</summary>
           <table id="indices"></table>
           <p id="votes"></p>
           <p id="scan-note"></p>
+          <label id="weight-box" hidden>Body weight (kg) <input id="weight" type="number" min="30" max="200" step="1" value="70" inputmode="numeric" /></label>
           <div class="grid2">
             <label>Map <select id="mapmode" aria-label="Show frame, peak, or difference from healthy"><option value="frame">frame</option><option value="peak">peak</option><option value="diff">vs healthy (MUN104)</option></select></label>
             <label>Surface <select id="surface" aria-label="Flat or pressure terrain"><option value="flat">flat</option><option value="terrain">terrain</option></select></label>

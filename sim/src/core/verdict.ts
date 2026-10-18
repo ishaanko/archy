@@ -40,3 +40,12 @@ export function readArch(i: Indices): Reading {
   const third = level === "lower" ? 0 : level === "typical" ? 1 : 2
   return { level, ...TEXT[level], position: (third + 0.05 + 0.9 * within) / 3 }
 }
+
+/** Plain-language reading of the Arch Height Index (Butler 2008: <= 0.315 lower, >= 0.365 higher). Marker placement mirrors
+ *  `readArch`: inside the level's third of the scale, by AHI. */
+export function readAhi(ahi: number, lower = 0.315, higher = 0.365): Reading {
+  const level: ArchLevel = ahi <= lower ? "lower" : ahi >= higher ? "higher" : "typical"
+  const within = level === "lower" ? clamp01((ahi - (lower - 0.06)) / 0.06) : level === "typical" ? clamp01((ahi - lower) / (higher - lower)) : clamp01((ahi - higher) / 0.06)
+  const third = level === "lower" ? 0 : level === "typical" ? 1 : 2
+  return { level, ...TEXT[level], position: (third + 0.05 + 0.9 * within) / 3 }
+}
