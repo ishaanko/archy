@@ -3,6 +3,7 @@ import SwiftUI
 /// A finished assessment: both arches rise to their measured height, then the detail rows.
 struct ResultsView: View {
     let assessment: Assessment
+    @Environment(AppRouter.self) private var router
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var leftRisen = false
     @State private var rightRisen = false
@@ -32,10 +33,22 @@ struct ResultsView: View {
                 .accessibilityIdentifier("results.raw")
                 .reveal(3)
 
+                Button { router.tab = .insole } label: {
+                    HStack {
+                        Text("Design your insole").font(.body.weight(.medium))
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.inkTertiary)
+                    }
+                    .frame(minHeight: 52)
+                }
+                .buttonStyle(.archyPressable)
+                .accessibilityIdentifier("results.insole")
+                .reveal(4)
+
                 Text("Educational self-measurement, not a diagnosis. A home tape measure is less precise than clinical tools.")
                     .font(.footnote)
                     .foregroundStyle(.inkTertiary)
-                    .reveal(4)
+                    .reveal(5)
             }
             .padding(.horizontal, Space.page)
             .padding(.vertical, Space.lg)
