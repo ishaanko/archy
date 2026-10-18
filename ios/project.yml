@@ -19,6 +19,7 @@ targets:
   Archy:
     type: application
     platform: iOS
+    deploymentTarget: "18.6"
     sources:
       - path: Archy
         type: syncedFolder
@@ -26,6 +27,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dubhacks.archy
         PRODUCT_NAME: archy
+        MARKETING_VERSION: "1"
         INFOPLIST_FILE: Archy/Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
@@ -49,6 +51,9 @@ schemes:
     build:
       targets:
         Archy: all
+    run:
+      # Metal API Validation aborts inside RealityKit's own ObjectCaptureView shadow shader once detection starts.
+      enableGPUValidationMode: disabled
     test:
       targets:
         - ArchyUITests
