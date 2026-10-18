@@ -20,7 +20,7 @@ struct OnboardingStoreTests {
         let defaults = try #require(UserDefaults(suiteName: domain))
         defer { defaults.removePersistentDomain(forName: domain) }
         let store = OnboardingStore(defaults: defaults)
-        let answers = OnboardingAnswers(goal: .exploreSpace, diagnosis: ReportedDiagnosis.none, pain: .noPain)
+        let answers = OnboardingAnswers(goal: .easePain, diagnosis: ReportedDiagnosis.none, pain: .noPain)
         #expect(store.complete(answers))
         #expect(!store.complete(OnboardingAnswers()))
         #expect(store.completed?.answers == answers)

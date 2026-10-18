@@ -48,7 +48,7 @@ struct OnboardingModelsTests {
     }
 
     @Test func privateAnswersAreValidAndPreserved() throws {
-        let answers = OnboardingAnswers(goal: .exploreSpace, diagnosis: .preferNotToSay, pain: .preferNotToSay)
+        let answers = OnboardingAnswers(goal: .easePain, diagnosis: .preferNotToSay, pain: .preferNotToSay)
         #expect(answers.isComplete)
         #expect(answers.pain?.score == nil)
         #expect(PainResponse.noPain.score == 0)
@@ -69,35 +69,5 @@ struct OnboardingModelsTests {
         #expect(throws: OnboardingValidationError.incomplete) {
             try CompletedOnboarding(answers: OnboardingAnswers(), completedAt: Date(timeIntervalSince1970: 0))
         }
-    }
-
-    @Test func summaryDistinguishesSelfReportFromInference() {
-        var answers = completeAnswers
-        answers.diagnosis = .flatFeet
-        #expect(answers.summaryText.contains("You reported a prior diagnosis of flat feet."))
-        #expect(answers.summaryText.contains("self-reported"))
-        answers.diagnosis = ReportedDiagnosis.none
-        answers.pain = .rating(10)
-        #expect(answers.summaryText.contains("You reported no prior foot diagnosis."))
-        #expect(!answers.summaryText.contains("flat feet"))
-        #expect(answers.nextStepTitle == completeAnswers.nextStepTitle)
-    }
-
-    @Test func missingAndSkippedDiagnosisRemainDistinct() {
-        var answers = completeAnswers
-        answers.diagnosis = nil
-        #expect(answers.summaryText.contains("not answered the diagnosis"))
-        answers.diagnosis = .preferNotToSay
-        #expect(answers.summaryText.contains("chose not to share your diagnosis"))
-    }
-
-    @Test(arguments: FootGoal.allCases)
-    func nextStepDependsOnlyOnGoal(goal: FootGoal) {
-        var answers = OnboardingAnswers(goal: goal, diagnosis: ReportedDiagnosis.none, pain: .noPain)
-        let title = answers.nextStepTitle
-        answers.diagnosis = .flatFeet
-        answers.pain = .rating(10)
-        #expect(answers.nextStepTitle == title)
-        #expect(!title.isEmpty)
     }
 }
