@@ -2,6 +2,31 @@
 
 Requires Node 20 or later. No dependencies. Run `node server.mjs` and test with `node --test server.test.mjs`.
 
+## Connecting an existing host
+
+`createHandler(config)` exports the same authenticated request handler used by
+`createServer(config)`, without starting a listener. Import it into your existing
+server-side Node route with `apiKey: process.env.XAI_API_KEY` and
+`proxyToken: process.env.ARCHY_PROXY_TOKEN`. Keep the incoming request as a raw
+Node stream (disable any automatic JSON body parser). The handler accepts paths
+`/narrate` and `/health`; if your framework mounts it at `/api/narrate`, normalize
+the request path to `/narrate` in the adapter. For Web Request/Response frameworks,
+adapt the contract to the native route API rather than passing a parsed body to
+the Node-stream handler. Preserve the fixed script allowlist and size limits.
+
+Use the existing site's deployment settings. No new hosting project or root
+directory changes are needed. Configure secrets as server-only environment
+variables, never public frontend variables. The local `.env.local` is Git-ignored
+and must not be uploaded. Generate a separate random app token of at least 24
+characters (for example `openssl rand -hex 32`) and enter that token, not the xAI
+key, in the app. Deploy, verify health, then test one authenticated narration.
+Health confirms configuration only; it does not verify xAI credits or key validity.
+
+The app accepts any HTTPS endpoint whose path ends in `/narrate`, including
+`https://EXISTING-SITE/api/narrate`. After deployment, enter this URL and the
+proxy token in Accessibility → Grok connection, save and enable Grok. This is
+instruction narration, not a realtime microphone conversation.
+
 Without credentials, `GET http://127.0.0.1:8787/health` returns `{"configured":false}`. Live voice is intentionally unconfigured; local narration can remain available in the app.
 
 To enable live voice, set `XAI_API_KEY` on the server and a distinct, randomly generated `ARCHY_PROXY_TOKEN` containing at least 24 characters. Optionally set `PORT` (default 8787). The server binds only to `127.0.0.1`. Never embed the xAI API key in the app or source control. Store the separate proxy token in the app's Keychain; manually configure the development proxy URL and token in settings. The iOS app accepts only HTTPS URLs ending in `/narrate`; put this local service behind your HTTPS development gateway. A physical device needs an appropriately secured reachable proxy, since its loopback address refers to itself. In the app, open Today → Accessibility or Premium → Accessibility, enter the URL and separate service token, save, then explicitly enable “Use Grok for public instructions.” Saving alone does not connect. “Try voice instructions” tests narration; request failures use on-device speech. The app does not record microphone audio or provide live conversation.
