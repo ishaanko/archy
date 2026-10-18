@@ -136,12 +136,13 @@ function plateVariants(step: CadStep): NonNullable<Session["variants"]> {
   return { plate: { trial: plate, analysis: plateAnalysis }, kit: { trial: kit, analysis: kitAnalysis } }
 }
 
-/** Analysis of one estimated walk on the scan's own grid; "with insole" keeps the "before" color scale so the drop is visible. */
-function ownAnalysis(est: ScanEstimate, walk: ScanEstimate["before"], peakMax?: number): Analysis {
+/** Analysis of one estimated walk on the scan's own grid, standing on `mesh`; "with insole" keeps the "before" color scale so
+ *  the drop is visible. */
+function ownAnalysis(est: ScanEstimate, walk: ScanEstimate["before"], mesh: InsoleMesh, peakMax?: number): Analysis {
   const model: PressureModel = { grid: est.grid, nSensors: 0, cells: est.cells, weights: new Float32Array(0) }
   const diff = differenceMap(est.grid, walk.peak, est.reference)
   return {
-    model, maps: walk.maps, peak: walk.peak, diff, cop: copTrajectory(model, walk.maps, est.nFrames), indices: null, mesh: est.mesh,
+    model, maps: walk.maps, peak: walk.peak, diff, cop: copTrajectory(model, walk.maps, est.nFrames), indices: null, mesh,
     peakMax: peakMax ?? walk.peak.reduce((m, v) => Math.max(m, v), 1),
     diffMax: diff.reduce((m, v) => Math.max(m, Math.abs(v)), 1e-9),
   }
@@ -149,8 +150,9 @@ function ownAnalysis(est: ScanEstimate, walk: ScanEstimate["before"], peakMax?: 
 
 function buildOwn(result: ScanResult, weight: number, mode: "before" | "with"): OwnScan {
   const est = estimateScan(result, template, weight)
-  const before = ownAnalysis(est, est.before)
-  return { result, est, weight, mode, analyses: { before, with: ownAnalysis(est, est.withInsole, before.peakMax) } }
+  // "Before" stands on a flat insole, "with" on the custom one, so the toggle changes the view and not just the colors.
+  const before = ownAnalysis(est, est.before, est.flatMesh)
+  return { result, est, weight, mode, analyses: { before, with: ownAnalysis(est, est.withInsole, est.mesh, before.peakMax) } }
 }
 
 // UI state
@@ -246,7 +248,8 @@ function draw(): void {
   const diverging = mode === "diff"
   const plain = screen === "insole"
   if (rebuild) {
-    view.setInsole(a.mesh, model.grid, session.trial?.sensors ?? session.device!.sensors)
+    // The Insole screen always shows the custom insole, even from the "before" view.
+    view.setInsole(session.own && plain ? session.own.est.mesh : a.mesh, model.grid, session.trial?.sensors ?? session.device!.sensors)
     rebuild = false
   }
   view.setPlain(plain)
@@ -398,6 +401,7 @@ function setScreen(next: Screen): void {
   navButtons.forEach((b) => (b.dataset.screen === next ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current")))
   el.mapmode.value = next === "watch" ? "frame" : "peak"
   el.details.hidden = next === "insole"
+  if (session?.own) rebuild = true
   dirty = true
   invalidate()
 }
@@ -553,7 +557,8 @@ function startLive(device: LiveSensor, footKey: FootKey): void {
 }
 
 const selectedSide = () => (document.querySelector<HTMLInputElement>('input[name="side"]:checked')?.value ?? "left") as "left" | "right"
-const demoFoot = () => $<HTMLSelectElement>("demo-foot").value as FootType
+// The demo sensor walks like a flatter arch, the case the screen is for; ?live=demo&foot= picks another.
+const demoFoot = (): FootType => "flat"
 const footKeyFor = (t: FootType): FootKey => EXAMPLES.find((e) => e.type === t)!.key
 
 document.querySelectorAll<HTMLButtonElement>("[data-example]").forEach((b) => b.addEventListener("click", () => startExample(b.dataset.example!)))
@@ -589,7 +594,7 @@ document.querySelectorAll<HTMLInputElement>('input[name="est"]').forEach((r) =>
     session.own.mode = r.value as "before" | "with"
     a = session.own.analyses[session.own.mode]
     renderResults()
-    dirty = true
+    rebuild = dirty = true
     invalidate()
   }))
 el.weight.addEventListener("change", () => {
