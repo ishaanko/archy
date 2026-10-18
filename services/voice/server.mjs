@@ -4,37 +4,49 @@ import { pathToFileURL } from 'node:url';
 
 const measurements = {
   fullLength: 'Measure from the back of your heel to the tip of your longest toe.',
-  truncatedLength: 'Measure from the back of your heel to the center of the ball behind your big toe.',
-  dorsumHeight: 'Find half of your full foot length. At that point, measure vertically from the supporting surface to the top of your foot.',
-  width: 'Measure across the widest part of your forefoot, between the first and fifth metatarsal heads.',
-  seatedNavicular: 'Sit with knees bent about ninety degrees and feet flat. Find and mark the bony bump on the inner midfoot, below and forward of the inner ankle. Measure vertically from the floor to that mark.',
-  standingNavicular: 'Stand relaxed with weight evenly shared. Keep the same marked navicular landmark and measure from the floor to the mark. Ask a helper to read the ruler without shifting your weight.',
+  truncatedLength: 'Measure from the back of your heel to the ball of your foot, just behind your big toe.',
+  dorsumHeight: "First, find the halfway point of your foot's length. Right there, measure straight up from the floor to the top of your foot.",
+  width: 'Measure across the widest part of your forefoot, from the bony bump on the inside to the bump on the outside.',
+  seatedNavicular: "Sit with your knees bent about ninety degrees and your feet flat. Find the bony bump on the inner side of your midfoot, just below and ahead of your ankle bone, and mark it. Then measure straight up from the floor to the mark.",
+  standingNavicular: "Now stand up, relaxed, with your weight shared evenly. Keep the same mark, and measure from the floor to it. It helps to have someone else read the ruler, so you don't shift your weight.",
 };
+// Bump `VoiceCache.version` in ios/Archy/Settings/GuidanceVoice.swift whenever a line, TTS_VOICE or TTS_SPEED changes,
+// so installed apps drop their saved audio.
 export const narrationCatalog = Object.freeze({
-  welcome: 'Welcome to Archy. Let us take this one gentle step at a time.',
-  add: 'You are in the plus tab. Choose manual measurements for guided ruler measurements and calculated results. Or choose guided photos for inner side, top and rear views of each foot. Photos remain on your iPhone until you explicitly choose to share an insole request.',
-  ...Object.fromEntries(['left', 'right'].map(side => [`photos.${side}`, `Photographing your ${side} foot. For the inner side view, frame the inside of your foot at floor level, including heel and toes. For the top view, photograph straight down with the heel and longest toe visible. For the rear view, frame the heel from behind with the camera level and ankle visible. Ask a helper if needed. Then switch feet for the other three photos. Photos are saved locally; scan analysis is not connected.`])),
-  ...Object.fromEntries(['left', 'right'].flatMap(side => Object.entries(measurements).map(([field, text]) => [`measurement.${side}.${field}`, `${side} foot. ${text} Keep the ruler straight and avoid compressing the skin. Enter your measurement in the units selected on screen.`]))),
-  'exercise.setup': 'Sit comfortably with your bare foot flat and knee above your ankle. Gently draw the base of your big toe toward your heel to lift the arch. Keep both planted and your toes long. Do not curl your toes. Breathe, then release. Stop if it hurts.',
-  'exercise.hold': 'Hold gently. Keep toes long and breathe.',
-  'exercise.relax': 'Relax your foot completely.',
-  'exercise.complete': 'Practice complete. Check how your feet feel.',
-  'balance.setup': 'Stand beside a solid counter on a stable floor. Keep fingertip support. Place one foot in front of the other, heel toward toe. Keep your eyes open on a fixed point. Stop if you feel pain, dizziness or unsteadiness. Choose the seated lesson if standing balance feels unsafe.',
-  'balance.hold': 'Hold with fingertip support. Look at one point and breathe.',
-  'balance.relax': 'Rest in a comfortable stance and keep your support. Follow the leading foot shown for the next hold.',
-  'balance.complete': 'Practice complete. Stay supported as you finish.',
-  'heelraise.setup': 'Stand facing a solid counter with your hands resting on it and your feet hip-width apart. Rise slowly onto the balls of your feet, pause, then lower slowly. Keep your weight over your big toes. Stop if you feel unsteady or it hurts.',
-  'heelraise.rise': 'Rise onto the balls of your feet and pause.',
-  'heelraise.lower': 'Lower slowly.',
-  'heelraise.complete': 'Practice complete. Shake out your calves.',
-  'toeyoga.setup': 'Sit with your bare foot flat on the floor. Lift only your big toe while the four small toes stay down. Then lower it and lift only the four small toes while your big toe stays down. Go gently, and stop if it hurts or cramps.',
+  welcome: "Hi, welcome to Archy. We'll take this one easy step at a time.",
+  'onboarding.welcome': "Hi, welcome to Archy. We'll check your arch and design an insole just for you. Tap Get started whenever you're ready.",
+  'onboarding.goal': 'So, what brings you here? Tap whichever one fits you best.',
+  'onboarding.background': "Tell us a little about your feet. Pick left, right, or both. Then let us know if a clinician has ever given you a diagnosis.",
+  'onboarding.pain': 'Any pain today? Slide the scale from one to ten, or tap no pain. You can also skip this one.',
+  'onboarding.done': "You're all set. Tap Scan your feet to begin.",
+  add: "This is the plus tab. Choose manual measurements if you'd like to use a ruler and get calculated results, or guided photos to capture the inside, top and back of each foot. Your photos stay on your iPhone unless you choose to share an insole request.",
+  ...Object.fromEntries(['left', 'right'].map(side => [`photos.${side}`, `Let's photograph your ${side} foot. For the inside view, get down at floor level and frame your whole foot from the inner side, heel to toes. For the top view, point the camera straight down so your heel and longest toe are both in the shot. For the back view, frame your heel from behind, with the camera level and your ankle in view. A helper can make this easier. Then switch feet and repeat. Your photos stay on your phone, and scan analysis isn't connected yet.`])),
+  ...Object.fromEntries(['left', 'right'].flatMap(side => Object.entries(measurements).map(([field, text]) => [`measurement.${side}.${field}`, `${side} foot. ${text} Keep the ruler straight, and try not to press into your skin. Then enter the number in the units on screen.`]))),
+  'exercise.setup': "Sit comfortably with your bare foot flat on the floor and your knee right above your ankle. Gently draw the base of your big toe back toward your heel, so your arch lifts. Keep your toes long and relaxed, and don't curl them. Breathe, then let go. If anything hurts, stop.",
+  'exercise.hold': 'Hold gently. Keep your toes long, and breathe.',
+  'exercise.relax': 'And relax. Let your foot go completely.',
+  'exercise.complete': 'Nice work. Take a moment to notice how your feet feel.',
+  'balance.setup': "Stand next to a solid counter on a stable floor, and keep your fingertips on it for support. Put one foot directly in front of the other, heel to toe, and look at a spot ahead of you. If you feel any pain, dizziness or unsteadiness, stop. The seated lesson is always there if standing doesn't feel safe.",
+  'balance.hold': 'Hold there, with your fingertips on the counter. Keep your eyes on one spot, and breathe.',
+  'balance.relax': 'Rest for a moment, and keep your hand on the counter. For the next hold, switch to the front foot shown on screen.',
+  'balance.complete': 'Nice work. Stay supported while you finish up.',
+  'heelraise.setup': "Stand facing a solid counter, with your hands resting on it and your feet about hip-width apart. Rise slowly onto the balls of your feet, pause, then lower slowly. Keep your weight over your big toes. If you feel unsteady or anything hurts, stop.",
+  'heelraise.rise': 'Rise up onto the balls of your feet, and pause.',
+  'heelraise.lower': 'And lower slowly.',
+  'heelraise.complete': 'Nice work. Give your calves a little shake.',
+  'toeyoga.setup': "Sit with your bare foot flat on the floor. Lift just your big toe, and keep the four small toes down. Then switch: lower it, and lift only the four small toes. Go gently, and stop if anything hurts or cramps.",
   'toeyoga.big': 'Lift your big toe. Keep the small toes down.',
-  'toeyoga.small': 'Now lift the four small toes. Keep your big toe down.',
-  'toeyoga.complete': 'Practice complete. Check how your feet feel.',
-  premium: 'Explore the movement studio for short-foot and supported balance lessons. AstroFit lets you prepare an insole quote request. Space Insole explores a future concept for your selected gravity environment. Requests stay local until you choose to share. Billing and checkout are not available. Accessibility is always included.',
-  measurements: 'Follow the measurement guide and enter your results when ready.',
-  space: 'SpaceLab lets you explore foot geometry and gravity environments. Gravity does not predict a change in your measured arch. You can explore a Space Insole design request or read the research.',
+  'toeyoga.small': 'Now the four small toes. Keep your big toe down.',
+  'toeyoga.complete': 'Nice work. Take a moment to notice how your feet feel.',
+  premium: "Here you can explore the movement studio, with short foot and supported balance lessons. AstroFit helps you prepare an insole quote request. And Space Insole is a future concept for the gravity environment you pick. Requests stay on your phone until you choose to share them. Billing and checkout aren't available yet, and accessibility is always included.",
+  measurements: "Follow the measurement guide, and enter your results when you're ready.",
+  space: "SpaceLab is where you can explore foot shape and gravity environments. Gravity doesn't predict any change in your measured arch. From here you can explore a Space Insole design request, or read the research.",
 });
+
+// xAI TTS voice and pace. `ara` is documented as warm and friendly; 1.0 is the natural pace (the API range is 0.7 to 1.5).
+// Run `node samples.mjs` to audition every voice.
+export const TTS_VOICE = 'ara';
+export const TTS_SPEED = 1.0;
 
 const MAX_BODY = 2048;
 const MAX_AUDIO = 2 * 1024 * 1024;
@@ -79,7 +91,7 @@ export function createHandler({ apiKey = '', proxyToken = '', fetchImpl = fetch,
       const upstream = await fetchImpl('https://api.x.ai/v1/tts', {
         method: 'POST', redirect: 'error', signal: controller.signal,
         headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ text: narrationCatalog[body.script_id], voice_id: 'eve', language: 'en', speed: 0.85 }),
+        body: JSON.stringify({ text: narrationCatalog[body.script_id], voice_id: TTS_VOICE, language: 'en', speed: TTS_SPEED }),
       });
       if (!upstream.ok || !upstream.body || upstream.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'audio/mpeg') {
         await upstream.body?.cancel();

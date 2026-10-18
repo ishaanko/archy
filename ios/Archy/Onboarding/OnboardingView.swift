@@ -13,6 +13,9 @@ private enum Step: Int {
         }
     }
 
+    /// Fixed public narration id (see `narrationCatalog` in services/voice/server.mjs). No answers are sent.
+    var script: String { "onboarding.\(self)" }
+
     /// How many progress segments are filled on this step.
     var progress: Int { min(max(rawValue, 0), 3) }
 }
@@ -63,12 +66,14 @@ struct OnboardingView: View {
         .sensoryFeedback(.selection, trigger: answers)
         .sensoryFeedback(.success, trigger: step) { _, new in new == .done }
         .onChange(of: step) { _, new in
-            if automaticNarration { voice.read(spoken(for: new)) } else { voice.stop() }
+            if automaticNarration { narrate(new) } else { voice.stop() }
+            prefetchNarration(from: new)
             UIAccessibility.post(notification: .screenChanged, argument: new.heading)
         }
         .onAppear {
             applyDebugRoute()
-            if automaticNarration { voice.read(spoken(for: step)) }
+            prefetchNarration(from: step)
+            if automaticNarration { narrate(step) }
         }
         .onDisappear { advanceTask?.cancel(); voice.stop() }
     }
@@ -81,7 +86,7 @@ struct OnboardingView: View {
             SegmentedProgress(filled: step.progress)
                 .opacity(step == .welcome ? 0 : 1)
             Menu {
-                Button("Read this step", systemImage: "speaker.wave.2") { voice.read(spoken(for: step)) }
+                Button("Read this step", systemImage: "speaker.wave.2") { narrate(step) }
                 Button("Stop reading", systemImage: "stop.circle") { voice.stop() }
                 Button("Accessibility settings", systemImage: "accessibility") { showsSettings = true }
             } label: {
@@ -324,6 +329,14 @@ struct OnboardingView: View {
         if let previous = Step(rawValue: step.rawValue - 1) { step = previous }
     }
 
+    private func narrate(_ step: Step) { voice.readScript(step.script, fallback: spoken(for: step)) }
+
+    /// Saves this step's and the next step's narration so the voice starts without a wait.
+    private func prefetchNarration(from step: Step) {
+        voice.prefetch([step, Step(rawValue: step.rawValue + 1)].compactMap { $0?.script })
+    }
+
+    /// On-device fallback text. Fixed public copy; it never contains the user's answers.
     private func spoken(for step: Step) -> String {
         switch step {
         case .welcome: "Check your arch. Print your insole. Select Get started."
