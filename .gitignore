@@ -7,3 +7,11 @@ __pycache__/
 # downloaded datasets stay local; fetch scripts reproduce them
 datasets/raw/
 sim/data/raw/
+
+# Xcode / SwiftPM
+.build/
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
