@@ -74,4 +74,39 @@ struct FootMesh {
         guard !indices.isEmpty else { throw LoadError.noTriangles(url) }
         return FootMesh(vertices: vertices, indices: indices)
     }
+
+    /// Reads a binary STL (80-byte header, triangle count, 50 bytes per triangle) in millimeters, Z up,
+    /// like `STLExporter` writes. Returns welded triangles in meters, Y up, like a reconstructed scan.
+    static func loadSTL(from url: URL) throws -> FootMesh {
+        let data = try Data(contentsOf: url)
+        guard data.count >= 84 else { throw LoadError.noTriangles(url) }
+        let triangleCount = Int(data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 80, as: UInt32.self) })
+        guard triangleCount > 0, data.count >= 84 + triangleCount * 50 else { throw LoadError.noTriangles(url) }
+
+        var vertices: [SIMD3<Float>] = []
+        var indices: [UInt32] = []
+        var indexOfVertex: [SIMD3<Float>: UInt32] = [:]
+        indices.reserveCapacity(triangleCount * 3)
+        data.withUnsafeBytes { bytes in
+            for t in 0..<triangleCount {
+                // Skip the 12-byte face normal.
+                let base = 84 + t * 50 + 12
+                for corner in 0..<3 {
+                    let offset = base + corner * 12
+                    let stl = SIMD3(bytes.loadUnaligned(fromByteOffset: offset, as: Float.self),
+                                    bytes.loadUnaligned(fromByteOffset: offset + 4, as: Float.self),
+                                    bytes.loadUnaligned(fromByteOffset: offset + 8, as: Float.self))
+                    if let existing = indexOfVertex[stl] {
+                        indices.append(existing)
+                    } else {
+                        let index = UInt32(vertices.count)
+                        indexOfVertex[stl] = index
+                        vertices.append(SIMD3(stl.x, stl.z, -stl.y) * 0.001)
+                        indices.append(index)
+                    }
+                }
+            }
+        }
+        return FootMesh(vertices: vertices, indices: indices)
+    }
 }
