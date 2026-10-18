@@ -13,3 +13,4 @@ reference/
 # Local editor and agent settings
 .claude/
 .cursor/
+CLAUDE.md
