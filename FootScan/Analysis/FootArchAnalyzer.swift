@@ -28,6 +28,8 @@ enum FootArchAnalyzer {
     /// Inner arch lower than this is flat. Set halfway between the first test feet: a known flat foot
     /// measured 5.9 mm and a normal one 15.9 mm. Refine as more scans come in.
     static let flatArchHeight: Float = 0.010
+    /// A sole tilted more than this many degrees wasn't standing flat (weight back, sloped floor).
+    static let unevenSoleTilt: Float = 4
 
     enum Failure: LocalizedError {
         case noFootprint
@@ -42,7 +44,8 @@ enum FootArchAnalyzer {
     static func analyze(_ mesh: FootMesh) throws -> FootArchAnalysis {
         let floorY = mesh.bounds.min.y
         let axes = footAxes(mesh, floorY: floorY)
-        let grid = HeightGrid(mesh: mesh, axes: axes, floorY: floorY, cellSize: cellSize)
+        var grid = HeightGrid(mesh: mesh, axes: axes, floorY: floorY, cellSize: cellSize)
+        let soleTilt = grid.levelToSupportPlane(cellSize: cellSize)
         let contact = largestRegion(of: grid.lowest.map { $0 < contactHeight }, columns: grid.columns, rows: grid.rows)
 
         // Footprint extent along the foot: columns with a real strip of contact, not single stray cells.
@@ -87,6 +90,7 @@ enum FootArchAnalyzer {
                                 archType: archType,
                                 footLengthCM: Double(Float(lengthColumns) * cellSize * 100),
                                 footWidthCM: Double(Float(maxWidthCells) * cellSize * 100),
+                                soleTiltDegrees: Double(soleTilt),
                                 footprint: footprint)
     }
 
@@ -231,7 +235,13 @@ struct FootArchAnalysis {
     let footLengthCM: Double
     /// Widest part of the footprint.
     let footWidthCM: Double
+    /// How tilted the plane the sole rests on was. A foot standing with weight on it is close to 0°; more
+    /// than `FootArchAnalyzer.unevenSoleTilt` suggests weight back on the heel or a sloped floor.
+    let soleTiltDegrees: Double
     let footprint: Footprint
+
+    /// The scan wasn't of a foot standing flat, so the result is less certain.
+    var isSoleUneven: Bool { soleTiltDegrees > Double(FootArchAnalyzer.unevenSoleTilt) }
 }
 
 /// The sole as seen from below, for drawing: columns run heel → toe, rows across the foot.
@@ -303,5 +313,54 @@ private struct HeightGrid {
         guard column >= 0, column < columns, row >= 0, row < rows else { return }
         let i = row * columns + column
         lowest[i] = min(lowest[i], height)
+    }
+
+    /// Re-measures every height from the plane the sole rests on (heel, ball, outer edge) instead of from
+    /// the scan's lowest point. Without this, a sole tilted by weight on the heel or a sloped floor loses
+    /// most of its footprint. Returns the plane's tilt in degrees; a tilt over 15° is left alone as implausible.
+    mutating func levelToSupportPlane(cellSize: Float) -> Float {
+        // Sole cells only: the lower leg, when the scan includes it, is 10 cm or more up.
+        var points: [SIMD3<Double>] = []
+        for row in 0..<rows {
+            for column in 0..<columns where lowest[row * columns + column] < 0.08 {
+                points.append(SIMD3(Double(column), Double(row), Double(lowest[row * columns + column])))
+            }
+        }
+        guard points.count >= 50 else { return 0 }
+
+        // Plane h = a + b·column + c·row. Refit to the lower half of the points each round: the arch and
+        // the sole's edges sit above the support plane, so they drop out and the fit settles onto it.
+        var plane = SIMD3<Double>.zero
+        for _ in 0..<5 {
+            guard let fit = Self.fitPlane(points) else { break }
+            plane = fit
+            let residuals = points.map { $0.z - (plane.x + plane.y * $0.x + plane.z * $0.y) }
+            let cutoff = residuals.sorted()[residuals.count / 2]
+            points = zip(points, residuals).filter { $0.1 <= cutoff }.map(\.0)
+            if points.count < 30 { break }
+        }
+
+        let slope = SIMD2(plane.y, plane.z) / Double(cellSize)
+        let tilt = Float(atan(simd_length(slope)) * 180 / .pi)
+        guard tilt < 15 else { return tilt }
+        for row in 0..<rows {
+            for column in 0..<columns where lowest[row * columns + column].isFinite {
+                lowest[row * columns + column] -= Float(plane.x + plane.y * Double(column) + plane.z * Double(row))
+            }
+        }
+        return tilt
+    }
+
+    /// Least-squares plane z = a + b·x + c·y, as (a, b, c); nil if the points are degenerate.
+    private static func fitPlane(_ points: [SIMD3<Double>]) -> SIMD3<Double>? {
+        var normal = simd_double3x3()
+        var right = SIMD3<Double>.zero
+        for p in points {
+            let row = SIMD3(1, p.x, p.y)
+            normal += simd_double3x3(columns: (row * row.x, row * row.y, row * row.z))
+            right += row * p.z
+        }
+        guard abs(normal.determinant) > 1e-9 else { return nil }
+        return normal.inverse * right
     }
 }

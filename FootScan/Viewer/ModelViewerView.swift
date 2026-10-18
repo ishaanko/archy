@@ -146,6 +146,12 @@ struct ModelViewerView: View {
                     Text("Arch Index \(arch.archIndex, format: .number.precision(.fractionLength(2)))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if arch.isSoleUneven {
+                        Label("The foot wasn't flat on the floor (tilted \(Int(arch.soleTiltDegrees.rounded()))°), so this is less certain. Rescan standing with weight on the whole foot.",
+                              systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                     Text("A screening estimate, not a medical diagnosis.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)

@@ -326,7 +326,7 @@ final class ScanFlowModel {
             let arch = try FootArchAnalyzer.analyze(mesh)
             archAnalysis = arch
             archError = nil
-            Log.analysis.notice("Arch height \(arch.archHeightMM, format: .fixed(precision: 1)) mm → \(arch.archType.rawValue, privacy: .public) (Arch Index \(arch.archIndex, format: .fixed(precision: 3))); foot \(arch.footLengthCM, format: .fixed(precision: 1)) × \(arch.footWidthCM, format: .fixed(precision: 1)) cm")
+            Log.analysis.notice("Arch height \(arch.archHeightMM, format: .fixed(precision: 1)) mm → \(arch.archType.rawValue, privacy: .public) (Arch Index \(arch.archIndex, format: .fixed(precision: 3))); sole tilt \(arch.soleTiltDegrees, format: .fixed(precision: 1))°\(arch.isSoleUneven ? " UNEVEN" : "", privacy: .public); foot \(arch.footLengthCM, format: .fixed(precision: 1)) × \(arch.footWidthCM, format: .fixed(precision: 1)) cm")
         } catch {
             archAnalysis = nil
             archError = error.localizedDescription
