@@ -13,7 +13,7 @@ import type { Point } from "../core/types"
 import { FootModel } from "../view/foot"
 
 /** Accent for the selected / hinted sensor (cursor.com orange). */
-const ACCENT = "#f54e00"
+const ACCENT = "#E5532D"
 const WIRE_RADIUS = 0.6
 
 const BOARD_CENTER = new Vector3(3, -52, 0)

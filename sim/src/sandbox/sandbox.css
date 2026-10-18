@@ -5,8 +5,9 @@ p { margin: 0; }
 #app { display: grid; grid-template-columns: minmax(380px, 500px) 1fr; gap: 24px; height: 100vh; padding: 20px; }
 
 /* ---- left column ---- */
+#side > .logo { align-self: flex-start; margin-bottom: -6px; }
 #side { overflow-y: auto; padding: 28px 12px 40px 20px; display: flex; flex-direction: column; gap: 22px; scrollbar-width: thin; }
-h1 { margin: 0; font: 400 clamp(40px, 4.6vw, 60px)/1.04 var(--font-serif); letter-spacing: -0.02em; text-wrap: balance; }
+h1 { margin: 0; font: 500 clamp(40px, 4.6vw, 60px)/1.04 var(--font-display); letter-spacing: -0.03em; text-wrap: balance; }
 h2 { margin: 0 0 10px; font-size: 13px; font-weight: 500; color: var(--text-sec); }
 
 #answer { display: flex; flex-direction: column; gap: 6px; padding: 20px 22px; background: var(--card); border: 1px solid var(--border-02); border-radius: var(--radius-lg); }
