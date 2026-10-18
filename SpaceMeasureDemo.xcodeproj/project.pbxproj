@@ -22,6 +22,12 @@
 		D33ED7DC569BDCB7F87A86EC /* SpaceMeasureDemo/Onboarding/OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAD4F9E12A1CAEBBF0ADE24 /* SpaceMeasureDemo/Onboarding/OnboardingModels.swift */; };
 		D5D4BB0CDD1EF3E968535C39 /* SpaceMeasureDemo/SpaceMeasureDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5718A355E4026C29287C79 /* SpaceMeasureDemo/SpaceMeasureDemoApp.swift */; };
 		F84566D69EF2971D1CFCCCAE /* SpaceMeasureDemo/Onboarding/OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364130049C15218AEDCF8834 /* SpaceMeasureDemo/Onboarding/OnboardingView.swift */; };
+		9AB9FF464E04E0DF66D70C48 /* SpaceMeasureDemo/Measurements/ExerciseSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5967DD789447F6B2C5C24716; };
+		E48AFAEFBE30BC32E4B8084A /* SpaceMeasureDemo/Measurements/PremiumModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 307B96A396D31DBD7DDAB105; };
+		414299F0EB610FC4E34FBF78 /* SpaceMeasureDemo/Premium/ExerciseCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD9D8CAE49E2B07CEC886DA; };
+		C240B337B6EDA09FD975A989 /* SpaceMeasureDemo/Premium/PremiumViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C69BBE25A166CB6E92C935; };
+89EE60931CBB1C746932084A = {isa = PBXBuildFile; fileRef = EA310B7BE18387332FEF21BD; };
+D957A58DE8226B18259D00B3 = {isa = PBXBuildFile; fileRef = 7569ECFA3CD370805255B7E4; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +58,12 @@
 		B25519798E49FE1469922B50 /* SpaceMeasureDemo/Capture/GuidedPhotosView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceMeasureDemo/Capture/GuidedPhotosView.swift; sourceTree = SOURCE_ROOT; };
 		C0717401946258C8AD2BEFF4 /* SpaceMeasureDemo/Measurements/AssessmentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceMeasureDemo/Measurements/AssessmentStore.swift; sourceTree = SOURCE_ROOT; };
 		C79BA4CBD5375A378AFC009B /* SpaceMeasureDemo/SpaceLab/SpaceLabViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceMeasureDemo/SpaceLab/SpaceLabViews.swift; sourceTree = SOURCE_ROOT; };
+		5967DD789447F6B2C5C24716 /* SpaceMeasureDemo/Measurements/ExerciseSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpaceMeasureDemo/Measurements/ExerciseSession.swift"; sourceTree = SOURCE_ROOT; };
+		307B96A396D31DBD7DDAB105 /* SpaceMeasureDemo/Measurements/PremiumModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpaceMeasureDemo/Measurements/PremiumModels.swift"; sourceTree = SOURCE_ROOT; };
+		3AD9D8CAE49E2B07CEC886DA /* SpaceMeasureDemo/Premium/ExerciseCoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpaceMeasureDemo/Premium/ExerciseCoachView.swift"; sourceTree = SOURCE_ROOT; };
+		D8C69BBE25A166CB6E92C935 /* SpaceMeasureDemo/Premium/PremiumViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpaceMeasureDemo/Premium/PremiumViews.swift"; sourceTree = SOURCE_ROOT; };
+EA310B7BE18387332FEF21BD = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpaceMeasureDemo/Premium/BalanceCoachView.swift"; sourceTree = SOURCE_ROOT; };
+7569ECFA3CD370805255B7E4 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpaceMeasureDemo/Premium/ScanAttachmentPicker.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +95,12 @@
 		64292B1C2B2E13EAD8788FC8 = {
 			isa = PBXGroup;
 			children = (
+7569ECFA3CD370805255B7E4,
+EA310B7BE18387332FEF21BD,
+				5967DD789447F6B2C5C24716 /* SpaceMeasureDemo/Measurements/ExerciseSession.swift */,
+				307B96A396D31DBD7DDAB105 /* SpaceMeasureDemo/Measurements/PremiumModels.swift */,
+				3AD9D8CAE49E2B07CEC886DA /* SpaceMeasureDemo/Premium/ExerciseCoachView.swift */,
+				D8C69BBE25A166CB6E92C935 /* SpaceMeasureDemo/Premium/PremiumViews.swift */,
 				1C9D5AB39892A9EBAFF260A1 /* SpaceMeasureDemo/Capture/AddAssessmentView.swift */,
 				B25519798E49FE1469922B50 /* SpaceMeasureDemo/Capture/GuidedPhotosView.swift */,
 				64F5847E295B20649A4972D3 /* SpaceMeasureDemo/Onboarding/GuidanceVoice.swift */,
@@ -187,6 +205,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+D957A58DE8226B18259D00B3,
+89EE60931CBB1C746932084A,
+				9AB9FF464E04E0DF66D70C48 /* SpaceMeasureDemo/Measurements/ExerciseSession.swift in Sources */,
+				E48AFAEFBE30BC32E4B8084A /* SpaceMeasureDemo/Measurements/PremiumModels.swift in Sources */,
+				414299F0EB610FC4E34FBF78 /* SpaceMeasureDemo/Premium/ExerciseCoachView.swift in Sources */,
+				C240B337B6EDA09FD975A989 /* SpaceMeasureDemo/Premium/PremiumViews.swift in Sources */,
 				9F0D8967A3AE70536FCB52B4 /* SpaceMeasureDemo/Capture/AddAssessmentView.swift in Sources */,
 				C352CA8CF265898A35601F41 /* SpaceMeasureDemo/Capture/GuidedPhotosView.swift in Sources */,
 				8986DDFCFF28BD40D87A7E7A /* SpaceMeasureDemo/Onboarding/GuidanceVoice.swift in Sources */,

@@ -63,12 +63,13 @@ struct AstroFitView: View {
                         Text("Surface density").font(.callout)
                         Slider(value: $density, in: 0...1).tint(material.color).accessibilityLabel("Surface pattern density")
                     }
+                    NavigationLink { InsoleRequestView(initialEnvironment: .earth) } label: { Label("Prepare a custom-insole request", systemImage: "doc.badge.plus").frame(maxWidth: .infinity).padding(.vertical, 4) }.buttonStyle(ArchyPrimaryButtonStyle()).accessibilityIdentifier("astrofit.request")
                     if let url = StartupConfiguration.websiteURL, url.scheme == "https" {
                         Link(destination: url) { Label("Visit the future AstroFit studio", systemImage: "arrow.up.right").frame(maxWidth: .infinity).padding() }.buttonStyle(ArchyPrimaryButtonStyle())
                     } else {
                         Button { showWebsiteInfo = true } label: { Label("AstroFit studio · Coming soon", systemImage: "arrow.up.right").frame(maxWidth: .infinity).padding() }.buttonStyle(.bordered)
                     }
-                    Text("Concept only. No checkout or measurement upload. No NASA endorsement or medical certification.").font(.footnote).foregroundStyle(.secondary)
+                    Text("Concept only. Requests can be prepared locally and shared after consent. No checkout, NASA endorsement or medical certification.").font(.footnote).foregroundStyle(.secondary)
                 }.padding(24)
             }
         }.foregroundStyle(Color.archyForeground).navigationTitle("AstroFit").navigationBarTitleDisplayMode(.inline).tint(Color.archyForeground)

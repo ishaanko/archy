@@ -31,6 +31,8 @@ struct MeasurementHome: View {
     }
 }
 struct MeasurementWizard: View {
+    @State private var voice = GuidanceVoice()
+    @AppStorage("accessibility.voiceGuidance") private var narration = false
     @EnvironmentObject private var store: AssessmentStore
     @State private var left = FootMeasurements()
     @State private var right = FootMeasurements()
@@ -78,7 +80,10 @@ struct MeasurementWizard: View {
                 if step >= 6 { Text("Left foot complete. These entries belong to your right foot only.").font(.caption).foregroundStyle(.secondary) }
             }.padding(22)
         }.background(Color.archyBackground).navigationTitle("Guided measurement").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { focused = false } } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { readInstruction() } label: { Image(systemName: "speaker.wave.2") }.accessibilityLabel("Read measurement instructions") }; ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { focused = false } } }
+            .onAppear { if narration { readInstruction() } }
+            .onChange(of: step) { _, _ in if narration { readInstruction() } }
+            .onDisappear { voice.stop() }
             .onChange(of: unit) { old, new in
                 if let raw = Double(entry.replacingOccurrences(of: ",", with: ".")), raw.isFinite {
                     let mm = old.toMillimeters(raw)
@@ -86,6 +91,9 @@ struct MeasurementWizard: View {
                 }
             }
             .navigationDestination(item: $completed) { ResultsView(assessment: $0) }
+    }
+    private func readInstruction() {
+        voice.readScript("measurement." + side.rawValue + "." + field.rawValue, fallback: side.title + " foot. " + field.title + ". " + field.instruction)
     }
     private func capture() {
         guard let value = parsed else { return }

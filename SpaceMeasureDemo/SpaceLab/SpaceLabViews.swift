@@ -54,6 +54,7 @@ struct BiomechanicsExplorer: View {
     @State private var selectedRecord: UUID?
     @State private var side: FootSide = .left
     @State private var mode: GravityMode = .earth
+    @AppStorage("space.selectedEnvironment") private var selectedEnvironment = "Earth"
     @State private var height = 60.0
     @State private var truncated = 180.0
     @State private var full = 260.0
@@ -89,12 +90,13 @@ struct BiomechanicsExplorer: View {
                         Text("AHI = height ÷ \(truncated, specifier: "%.1f") mm truncated length").font(.caption).foregroundStyle(.secondary)
                         Text(source).font(.caption).foregroundStyle(mode.color)
                     }
+                    NavigationLink { InsoleRequestView(initialEnvironment: mode) } label: { Label("Explore a Space Insole request", systemImage: "shoeprints.fill").frame(minHeight: 44) }
                     Text("Choose an environment").font(.headline)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         ForEach(GravityMode.allCases) { gravity in
-                            Button { mode = gravity } label: {
+                            Button { mode = gravity; selectedEnvironment = gravity.rawValue } label: {
                                 VStack(alignment: .leading, spacing: 8) { Label(gravity.rawValue, systemImage: gravity.symbol).font(.headline); Text(String(format: "%.3f g", gravity.g)).font(.system(.caption, design: .monospaced)) }.frame(maxWidth: .infinity, alignment: .leading).padding(16).background(mode == gravity ? gravity.color.opacity(0.18) : Color.archyCard, in: RoundedRectangle(cornerRadius: 8)).overlay(RoundedRectangle(cornerRadius: 8).stroke(mode == gravity ? gravity.color : .clear))
-                            }.buttonStyle(.plain).accessibilityAddTraits(mode == gravity ? .isSelected : [])
+                            }.buttonStyle(.plain).accessibilityIdentifier("gravity." + gravity.rawValue).accessibilityAddTraits(mode == gravity ? .isSelected : [])
                         }
                     }
                     Panel(dark: true) {
@@ -106,12 +108,12 @@ struct BiomechanicsExplorer: View {
                         } else { Text("Complete an assessment to load personal geometry here.").font(.callout).foregroundStyle(.secondary) }
                         Button("Reset illustrative geometry") { height = 60; truncated = 180; full = 260; source = "Illustrative geometry" }
                     }
-                    Text("Gravity changes the scene and relative loading arrows only. The arch changes only when you adjust it. This is an illustration, not a prediction of deformation, force distribution or physiology. Microgravity is approximated as 0g.").font(.footnote).foregroundStyle(.secondary)
+                    Text("Gravity changes the loading arrows; the slider changes the arch. This illustration does not predict foot changes. Microgravity ≈ 0g.").font(.footnote).foregroundStyle(.secondary)
                 }.padding(24)
             }
         }.foregroundStyle(Color.archyForeground).navigationTitle("Biomechanics").navigationBarTitleDisplayMode(.inline)
             .sensoryFeedback(.selection, trigger: mode)
-            .onAppear { if let initial { selectedRecord = initial.id; load(initial) } }
+            .onAppear { mode = GravityMode(rawValue: selectedEnvironment) ?? .earth; if let initial { selectedRecord = initial.id; load(initial) } }
             .onChange(of: side) { _, _ in if let initial, selectedRecord == initial.id { load(initial) } else if let record = store.records.first(where: { $0.id == selectedRecord }) { load(record) } }
     }
     private func load(_ record: Assessment) {
