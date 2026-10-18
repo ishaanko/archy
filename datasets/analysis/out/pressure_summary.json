@@ -1,0 +1,162 @@
+{
+ "cadwalk_trials": {
+  "healthy": {
+   "total": 2640,
+   "ok": 2640
+  },
+  "hallux_valgus": {
+   "total": 1466,
+   "ok": 1465
+  }
+ },
+ "cadwalk_healthy": {
+  "feet": 110,
+  "ai_mean_sd": [
+   0.145,
+   0.07
+  ],
+  "staheli_mean_sd": [
+   0.043,
+   0.086
+  ],
+  "csi_mean_sd": [
+   0.032,
+   0.067
+  ],
+  "pct_feet_flat": {
+   "ai": 2.7,
+   "staheli": 0.0,
+   "csi": 0.0,
+   "n": 110
+  },
+  "pct_subjects_any_foot_flat": {
+   "ai": 3.6,
+   "staheli": 0.0,
+   "csi": 0.0,
+   "n": 55
+  },
+  "trial_level_pct_flat_ai": 4.8
+ },
+ "cadwalk_hallux_valgus": {
+  "feet": 100,
+  "ai_mean_sd": [
+   0.19,
+   0.086
+  ],
+  "staheli_mean_sd": [
+   0.126,
+   0.187
+  ],
+  "csi_mean_sd": [
+   0.088,
+   0.13
+  ],
+  "pct_feet_flat": {
+   "ai": 22.0,
+   "staheli": 0.0,
+   "csi": 1.0,
+   "n": 100
+  },
+  "pct_subjects_any_foot_flat": {
+   "ai": 30.0,
+   "staheli": 0.0,
+   "csi": 2.0,
+   "n": 50
+  },
+  "trial_level_pct_flat_ai": 24.0
+ },
+ "cadwalk_healthy_vs_hv": {
+  "ai": {
+   "p": 2.013402267516666e-05,
+   "median_a": 0.15082500000000001,
+   "median_b": 0.20829999999999999
+  },
+  "staheli": {
+   "p": 0.0016369126295262663,
+   "median_a": 0.0,
+   "median_b": 0.0
+  },
+  "csi": {
+   "p": 0.001948322509215544,
+   "median_a": 0.0,
+   "median_b": 0.0
+  }
+ },
+ "cadwalk_sensitivity_pct_feet_flat_ai": {
+  "thr0.05_toe0.2": {
+   "healthy": 2.7,
+   "hallux_valgus": 22.0
+  },
+  "thr0.02_toe0.2": {
+   "healthy": 1.8,
+   "hallux_valgus": 19.0
+  },
+  "thr0.1_toe0.2": {
+   "healthy": 0.9,
+   "hallux_valgus": 16.0
+  },
+  "thr0.05_toe0.15": {
+   "healthy": 2.7,
+   "hallux_valgus": 15.0
+  },
+  "thr0.05_toe0.25": {
+   "healthy": 3.6,
+   "hallux_valgus": 36.0
+  }
+ },
+ "mun104": [
+  {
+   "foot": "L",
+   "ai": 0.1596,
+   "staheli": 0.0,
+   "csi": 0.0,
+   "length_mm": 255.1959
+  },
+  {
+   "foot": "R",
+   "ai": 0.1684,
+   "staheli": 0.0909,
+   "csi": 0.0625,
+   "length_mm": 255.3896
+  }
+ ],
+ "fsr": {
+  "feet_total": 612,
+  "feet_ok": 612,
+  "rectus": {
+   "n": 205,
+   "ai_mean_sd": [
+    0.261,
+    0.077
+   ],
+   "pct_flat": {
+    "ai": 62.0,
+    "staheli": 0.0,
+    "csi": 37.1,
+    "n": 205
+   }
+  },
+  "valgus": {
+   "n": 407,
+   "ai_mean_sd": [
+    0.239,
+    0.086
+   ],
+   "pct_flat": {
+    "ai": 48.9,
+    "staheli": 0.0,
+    "csi": 21.9,
+    "n": 407
+   }
+  },
+  "rectus_vs_valgus_ai": {
+   "p": 0.0020041180789427443,
+   "median_a": 0.281,
+   "median_b": 0.2581
+  },
+  "spearman_ai_vs_tca": [
+   -0.159,
+   0.0
+  ]
+ }
+}
