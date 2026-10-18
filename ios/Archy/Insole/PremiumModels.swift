@@ -25,14 +25,16 @@ struct InsoleRequest: Codable, Identifiable {
     let relativeGravity: Double
     let designIntent: String
     let photos: [String: Data]
+    /// Arch support the user dialed in, 0...100. Nil for requests saved before the studio existed.
+    let supportPercent: Int?
     let scan: InsoleScan?
     let exportConsentAt: Date
-    static let disclosureText = "Quote request only. No payment or order placed. Measurements are unchanged; space design intent is illustrative, not a validated fitting model. Recipient is selected by the user when sharing. Photos and attached scans require calibration and manufacturing review."
+    static let disclosureText = "Quote request only. No payment or order placed. Measurements are unchanged; space design intent is illustrative, not a validated fitting model. Recipient is selected by the user when sharing. Attached scans require calibration and manufacturing review."
     let disclosure: String
     enum CodingKeys: String, CodingKey {
-        case id, createdAt, kind, side, assessmentID, assessmentDate, synthetic, measurementsMM, material, environment, relativeGravity, designIntent, photos, scan, exportConsentAt, disclosure
+        case id, createdAt, kind, side, assessmentID, assessmentDate, synthetic, measurementsMM, material, environment, relativeGravity, designIntent, photos, supportPercent, scan, exportConsentAt, disclosure
     }
-    init(assessment: Assessment, side: FootSide, material: String, environment: String, gravity: Double, photos: [String: Data], consent: Bool, scan: InsoleScan? = nil) throws {
+    init(assessment: Assessment, side: FootSide, material: String, environment: String, gravity: Double, photos: [String: Data], consent: Bool, scan: InsoleScan? = nil, support: Double? = nil) throws {
         guard consent else { throw RequestError.consentRequired }
         let foot = assessment.measurements(for: side)
         guard foot.validationErrors.isEmpty, gravity.isFinite, (0...1).contains(gravity) else { throw RequestError.invalidMeasurements }
@@ -40,7 +42,8 @@ struct InsoleRequest: Codable, Identifiable {
         self.scan = scan
         disclosure = Self.disclosureText
         id = UUID(); createdAt = .now; exportConsentAt = .now
-        kind = environment == "Earth" ? "AstroFit custom insole" : "Space Insole concept"
+        supportPercent = support.map { Int(($0 * 100).rounded()) }
+        kind = environment == "Earth" ? "Custom insole" : "Space insole concept"
         self.side = side; assessmentID = assessment.id; assessmentDate = assessment.date
         synthetic = assessment.isSynthetic; measurementsMM = foot; self.material = material
         self.environment = environment; relativeGravity = gravity
