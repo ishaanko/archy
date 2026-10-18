@@ -23,7 +23,12 @@ struct ModelViewerView: View {
             VStack(spacing: 4) {
                 Text("Your Foot Scan")
                     .font(.title2.bold())
-                if let size = model.modelSize {
+                if let arch = model.archAnalysis {
+                    // Measured on the sole; the bounding box can include part of the lower leg.
+                    Text("Foot \(arch.footLengthCM, format: .number.precision(.fractionLength(1))) cm long · \(arch.footWidthCM, format: .number.precision(.fractionLength(1))) cm wide")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else if let size = model.modelSize {
                     // Y is up. Object Capture doesn't line the foot up with x or z consistently,
                     // so the longer horizontal side is the length.
                     let length = max(size.x, size.z) * 100
@@ -68,6 +73,21 @@ struct ModelViewerView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
+            archCard
+
+            if model.isEmbedded {
+                // Hands the scan back to the app that opened the scanner.
+                Button {
+                    model.complete()
+                } label: {
+                    Label("Done", systemImage: "checkmark")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .controlSize(.large)
+            }
+
             HStack(spacing: 12) {
                 Button {
                     isShowingShareSheet = true
@@ -105,6 +125,39 @@ struct ModelViewerView: View {
         .sheet(isPresented: $isShowingShareSheet) {
             ShareSheet(items: shareItems) { isShowingShareSheet = false }
                 .presentationDetents([.medium, .large])
+        }
+    }
+
+    /// Flat vs. normal, with the footprint it was measured from.
+    @ViewBuilder
+    private var archCard: some View {
+        if let arch = model.archAnalysis {
+            let isFlat = arch.archType == .flat
+            HStack(spacing: 14) {
+                FootprintView(footprint: arch.footprint)
+                    .frame(width: 100, height: 150)
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(isFlat ? "Flat arch" : "Normal arch",
+                          systemImage: isFlat ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                        .font(.headline)
+                        .foregroundStyle(isFlat ? .orange : .green)
+                    Text("Inner arch lifts \(arch.archHeightMM, format: .number.precision(.fractionLength(1))) mm off the floor (flat is under \(Int(FootArchAnalyzer.flatArchHeight * 1000)) mm).")
+                        .font(.subheadline)
+                    Text("Arch Index \(arch.archIndex, format: .number.precision(.fractionLength(2)))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("A screening estimate, not a medical diagnosis.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+        } else if let error = model.archError {
+            Label("Arch not measured: \(error)", systemImage: "questionmark.circle")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
