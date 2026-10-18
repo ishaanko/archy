@@ -7,7 +7,9 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { createHeatmapImage, paintHeatmap, type ColormapName, type HeatmapImage } from "../core/colormap"
 import type { InsoleMesh } from "../core/insole"
 import { sampleGrid, type Grid } from "../core/pressure"
+import type { FootPose } from "../core/gait"
 import type { Point } from "../core/types"
+import { FootModel } from "./foot"
 
 const TERRAIN_MM = 18 // displacement at full-scale pressure
 
@@ -45,9 +47,9 @@ export class InsoleScene {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
     this.renderer.setClearColor(0x000000, 1)
     this.camera.up.set(0, 0, 1)
-    this.camera.position.set(3, -210, 270)
+    this.camera.position.set(250, -190, 210)
     this.controls = new OrbitControls(this.camera, canvas)
-    this.controls.target.set(3, 110, 4)
+    this.controls.target.set(0, 105, 35)
     this.controls.enableDamping = true
     this.controls.addEventListener("change", onChange)
     this.controls.update()
@@ -103,7 +105,7 @@ export class InsoleScene {
     geo.computeVertexNormals()
     this.baseZ = new Float32Array(insole.topCount)
     for (let i = 0; i < insole.topCount; i++) this.baseZ[i] = insole.positions[i * 3 + 2]
-    this.mesh = new Mesh(geo, [this.material, new MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 })])
+    this.mesh = new Mesh(geo, [this.plain ? this.plainMaterial : this.material, new MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 })])
     this.scene.add(this.mesh)
   }
 
@@ -125,6 +127,39 @@ export class InsoleScene {
   }
   private terrainWas = false
   private lift: (x: number, y: number) => number = () => 0
+
+  private foot: FootModel | null = null
+  private footCache = new Map<string, Promise<FootModel>>()
+  private footVisible = true
+  private plainMaterial = new MeshStandardMaterial({ color: 0xc9ccd1, roughness: 0.8 })
+  private plain = false
+
+  /** Shows the scanned foot model at `url` (loads once per url, then swaps instantly). */
+  async setFoot(url: string): Promise<void> {
+    let p = this.footCache.get(url)
+    if (!p) this.footCache.set(url, (p = FootModel.load(url)))
+    const next = await p
+    if (this.foot === next) return
+    if (this.foot) this.scene.remove(this.foot.mesh)
+    this.foot = next
+    next.mesh.visible = this.footVisible
+    this.scene.add(next.mesh)
+  }
+
+  setFootVisible(on: boolean): void {
+    this.footVisible = on
+    if (this.foot) this.foot.mesh.visible = on
+  }
+
+  setFootPose(p: FootPose): void {
+    this.foot?.pose(p)
+  }
+
+  /** Insole without heatmap (the "Your insole" view). */
+  setPlain(on: boolean): void {
+    this.plain = on
+    if (this.mesh) (this.mesh.material as MeshStandardMaterial[])[0] = on ? this.plainMaterial : this.material
+  }
 
   /** Sensor spheres on/off; positions follow the surface. */
   setSensorsVisible(on: boolean): void {

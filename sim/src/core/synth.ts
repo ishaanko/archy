@@ -18,7 +18,7 @@ function footShape(type: FootType, template: Template, peakRef: number) {
 }
 
 /** Time (0..1 of stance) at which a spot at distance y from the heel is loaded most: heel strike, midstance, push-off, toe off. */
-function peakTime(y: number): number {
+export function peakTime(y: number): number {
   const knots: [number, number][] = [[0, 0.15], [25, 0.17], [95, 0.45], [160, 0.65], [205, 0.84], [260, 0.86]]
   for (let i = 1; i < knots.length; i++)
     if (y <= knots[i][0]) {

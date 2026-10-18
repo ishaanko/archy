@@ -1,6 +1,8 @@
 # Insole pressure simulation
 
-Browser-only demo of: pressure sensors -> heatmap -> arch indices -> printable insole -> orbit it in 3D. No server, nothing uploaded.
+Browser-only foot arch screening demo: pressure sensors -> heatmap -> arch result in plain words -> printable insole, with a scanned 3D foot walking on it. No server, nothing uploaded.
+
+Guided flow: Start (Try an example / Use my sensor) -> Watch -> Result -> Insole. Technical controls, indices, cutoffs and citations sit under "Show details". Start choices: 3 examples (scanned feet with matching synthetic walking pressure), a clinic-plate walk (real CAD WALK step, toggle between the full plate and what the 6-sensor kit would read), the recorded 48-sensor walk, a live sensor over Web Serial, or the demo sensor. Live input keeps a rolling mean of per-sensor peaks over the last 4 steps and shows the result after 3 steps (6 sensors: arch index only, since contact widths saturate). `src/core/gait.ts` rolls the foot through heel strike, flat, push-off; skipped under `prefers-reduced-motion`.
 
 ## Run
 
@@ -10,7 +12,9 @@ bun run build                             # type-check + production build
 bun scripts/export-stl.ts flat /tmp/x.stl # headless STL (normal | flat | "high arch", optional left|right)
 ```
 
-Deep links for screenshots: `?source=p4-left&map=diff&surface=terrain&patterns=1&cmap=cividis&frame=40`.
+Deep links for screenshots: `?ex=1|2|3`, `?plate=healthy-flatter&variant=kit`, `?source=p4-left`, `?live=demo&foot=flat&side=left`, plus `screen=watch|result|insole`, `frame=40` (pauses), `details=1`, `map=diff`, `surface=terrain`, `cmap=cividis`, `patterns=1`.
+
+Foot models: `uv run --with trimesh --with numpy --with scipy --with fast-simplification --with mapbox_earcut --with networkx --with shapely python sim/scripts/pick_feet.py`. Plate steps: `uv run --with nibabel --with numpy --with scipy python sim/scripts/convert_cadwalk.py`.
 
 ## Pipeline
 
@@ -47,3 +51,11 @@ Grid 63 x 27, max 402 kPa, left foot (right is its mirror). Fitted to the generi
 - Synthetic: each sensor's peak is the MUN104 map at its position (normal), plus medial midfoot loading (flat) or a suppressed midfoot band (high arch); time course is a Gaussian bump per foot region (heel strike, midstance, push-off, toe off), seeded noise.
 - Insole outline is a generic adult shape (about 257 mm), not measured per user.
 - Indices from 48 sparse sensors are not clinically validated. The sensors span about 6 cm of foot width, so widths saturate and most real single steps read flat-ish. Screening, not diagnosis.
+
+## Scanned feet (3D model)
+
+Schuster et al. 2024, Proc R Soc B, 3D foot scans, doi 10.5061/dryad.g4f4qrfwt (Zenodo 10360304), CC0. `scripts/pick_feet.py` builds a virtual footprint for each of the 100 full-weight scans (vertices within 3 mm of the floor, rasterized, toes dropped) and computes the Cavanagh arch index. Median 0.263, 5th-95th percentile 0.22-0.32, 56 of 100 above the 0.26 flat cutoff: a standing soft-tissue footprint reads flatter than the ink footprints the cutoffs came from, so use the ordering, not the cutoffs. Examples (public/models/, about 350 KB each, 20k faces, scaled to a 240 mm foot): flatter = participant 077 (0.351), typical = 058 (0.264), higher = 101 (0.191). Scan 077 failed the automatic medial-side check (very flat foot), orientation there follows the file label. Pressure for examples is synthetic (`core/synth.ts`), the scans only supply the foot shape.
+
+## Clinic plate steps (CAD WALK)
+
+Booth et al., "The CAD WALK Healthy Controls Dataset" (Zenodo 10.5281/zenodo.1265420) and the hallux valgus pre-surgery set (Zenodo 3406523), IEEE ISBI 2019. RSscan plate, 7.62 x 5.08 mm sensors, 500 Hz healthy / 200 Hz hallux valgus. `scripts/convert_cadwalk.py` keeps 5 steps (3 healthy, 2 hallux valgus with the flattest midfoot), aligns them to the canonical frame (orientation per side from a unanimous vote over all feet), resamples to a 5 mm grid at 50 Hz (public/data/cadwalk.json, about 550 KB). Units are undocumented; values are read as N/cm2 and stored as kPa. License note: the dataset Readme says CC BY-NC-SA, the task notes said CC BY 4.0, check before commercial use. The kit view samples the same step at the six positions in `src/hardware/layout.ts` (5-point patch mean), then reconstructs with `SPARSE_KERNEL`. Dynamic plate footprints give lower arch indices than the cutoffs (healthy median 0.15), so "typical" and "higher" steps were picked near arch index 0.235 and 0.15. Future work: UNB StepUP-P150 (50+ GB, not downloaded).
