@@ -29,15 +29,20 @@ struct ScanFolder {
     /// ObjectCaptureSession refuses to start with less free space than this.
     static let requiredFreeBytes: Int64 = 4_000_000_000
 
-    /// Creates a new, empty scan folder named after the current time (no colons, so AirDrop/Finder friendly).
-    static func createNew() throws -> ScanFolder {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let folder = ScanFolder(root: scansRoot.appending(path: formatter.string(from: .now),
-                                                          directoryHint: .isDirectory))
+    /// Creates a new scan folder named after the current time (no colons, so AirDrop/Finder friendly).
+    /// `captureFolders: false` makes a bare folder for an imported file, which has no photos.
+    static func createNew(captureFolders: Bool = true) throws -> ScanFolder {
+        var root = scansRoot.appending(path: nameFormatter.string(from: .now), directoryHint: .isDirectory)
+        // Two imports in the same second must not share a folder.
+        var suffix = 2
+        while FileManager.default.fileExists(atPath: root.path) {
+            root = scansRoot.appending(path: "\(nameFormatter.string(from: .now))-\(suffix)", directoryHint: .isDirectory)
+            suffix += 1
+        }
+        let folder = ScanFolder(root: root)
         do {
-            for directory in [folder.images, folder.checkpoint] {
+            let directories = captureFolders ? [folder.images, folder.checkpoint] : [folder.root]
+            for directory in directories {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             }
         } catch {
@@ -46,6 +51,32 @@ struct ScanFolder {
         }
         Log.files.notice("Created scan folder \(folder.root.path, privacy: .public)")
         return folder
+    }
+
+    private static var nameFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return formatter
+    }
+
+    /// When the scan was made: the time in its folder name, or the folder's creation date for odd names.
+    var date: Date {
+        let name = String(root.lastPathComponent.prefix(19))
+        if let parsed = Self.nameFormatter.date(from: name) { return parsed }
+        return (try? root.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+    }
+
+    /// A finished scan has a model file: `foot.usdz` from the camera, or the `foot.stl` of an import.
+    var hasModel: Bool {
+        [modelURL, stlURL].contains { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// Reads whichever model file the folder has. The reconstructed USDZ wins; an imported STL is read as is.
+    func loadMesh() throws -> FootMesh {
+        FileManager.default.fileExists(atPath: modelURL.path)
+            ? try FootMesh.load(from: modelURL)
+            : try FootMesh.loadSTL(from: stlURL)
     }
 
     /// Number of captured HEIC images in `Images/`.
@@ -105,7 +136,7 @@ struct ScanFolder {
         var emptyFolders = 0
         for root in scans where isDirectory(root) {
             let folder = ScanFolder(root: root)
-            let hasModel = fileManager.fileExists(atPath: folder.modelURL.path)
+            let hasModel = folder.hasModel
             if folder.imageCount() == 0 && !hasModel {
                 freed += remove(root)
                 emptyFolders += 1
