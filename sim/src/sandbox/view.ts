@@ -1,20 +1,22 @@
 import {
   AmbientLight, BoxGeometry, BufferAttribute, BufferGeometry, CatmullRomCurve3, CylinderGeometry, DataTexture, DirectionalLight,
   InstancedMesh, LinearFilter, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Raycaster,
-  RGBAFormat, RingGeometry, Scene, Group, SRGBColorSpace, TubeGeometry, UnsignedByteType, Vector2, Vector3, WebGLRenderer,
+  Box3, Color, RGBAFormat, RingGeometry, Scene, Group, SRGBColorSpace, TubeGeometry, UnsignedByteType, Vector2, Vector3, WebGLRenderer,
   type Material,
 } from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { createHeatmapImage, paintHeatmap, type ColormapName, type HeatmapImage } from "../core/colormap"
 import type { FootPose } from "../core/gait"
 import { buildInsole, type InsoleMesh } from "../core/insole"
-import { inside } from "../core/outline"
 import type { Grid } from "../core/pressure"
 import type { Point } from "../core/types"
 import { FootModel } from "../view/foot"
 
-/** Okabe-Ito colors (colorblind-safe), used to tell sensors and their wires apart. */
-export const SENSOR_COLORS = ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#FFFFFF"] as const
+/** Accent for the selected / hinted sensor (cursor.com orange). */
+const ACCENT = "#f54e00"
+/** Scanned feet are ~250 mm long vs the 258 mm insole; shrink slightly so the foot sits inside it. */
+const FOOT_SCALE = 0.96
+const WIRE_RADIUS = 0.6
 
 const BOARD_CENTER = new Vector3(3, -52, 0)
 const BOARD_LENGTH = 45, BOARD_WIDTH = 18, PCB = 1.6, HEADER = 2.5, PIN_TIP = 5.5
@@ -23,7 +25,8 @@ const FOOT_ROLL_RAD = 0.14 // foot tilt at full roll
 const Z = new Vector3(0, 0, 1)
 
 export interface SensorVis extends Point {
-  color: string
+  /** Orange ring: this is the sensor the current hint is about. */
+  hinted: boolean
 }
 
 /** Where wire `index` meets the board header (the row facing the insole). */
@@ -56,18 +59,23 @@ export class SandboxScene {
     base: new CylinderGeometry(9.15, 9.15, 0.5, 32).rotateX(Math.PI / 2),
     pad: new CylinderGeometry(6.35, 6.35, 0.2, 32).rotateX(Math.PI / 2),
     rim: new RingGeometry(5.3, 6.35, 40),
-    halo: new RingGeometry(10.5, 11.8, 40),
+    halo: new RingGeometry(10.5, 12, 40),
+    handle: new RingGeometry(12.6, 13.4, 40),
   }
   private baseMat = new MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.7 })
   private padMat = new MeshStandardMaterial({ color: 0x3b3b3b, roughness: 0.5 })
-  private haloMat = new MeshBasicMaterial({ color: 0xffffff })
-  private rimMats = new Map<string, MeshBasicMaterial>()
+  /** Rings and handles sit on the dark insole in both themes, so they stay light. */
+  private inkMat = new MeshBasicMaterial({ color: 0xf2f1ed })
+  private handleMat = new MeshBasicMaterial({ color: 0xf2f1ed, transparent: true, opacity: 0.4, depthWrite: false })
+  private accentMat = new MeshBasicMaterial({ color: ACCENT })
+  private wireMat = new MeshBasicMaterial({ color: 0xffffff })
+  private ink = new Color(0xffffff)
 
   constructor(private canvas: HTMLCanvasElement, grid: Grid, private outline: readonly Point[], onChange: () => void) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
-    this.renderer.setClearColor(0x000000, 1)
     this.camera.up.set(0, 0, 1)
+    this.setTheme("#000000", "#ffffff")
     this.controls = new OrbitControls(this.camera, canvas)
     this.controls.enableDamping = true
     this.controls.addEventListener("change", onChange)
@@ -140,13 +148,30 @@ export class SandboxScene {
     return g
   }
 
+  /** Page colors (from the CSS tokens): canvas background, and ink for the wires. */
+  setTheme(bg: string, fg: string): void {
+    this.renderer.setClearColor(new Color(bg), 1)
+    this.ink.set(fg)
+    this.wireMat.color.copy(this.ink).lerp(new Color(bg), 0.4)
+    this.styleFoot()
+  }
+
+  private styleFoot(): void {
+    if (!this.foot) return
+    const m = this.foot.mesh.material as MeshStandardMaterial
+    m.color.set(0xf4f1ea)
+    m.emissive.set(0xf4f1ea)
+    m.emissiveIntensity = 0.25
+    this.foot.opacity = 0.24
+  }
+
   setBoard(isEsp: boolean): void {
     this.pcb.color.set(isEsp ? 0x1d1d1d : 0x124a63)
   }
 
   /** Board center on screen for its label. */
   boardAnchor(): Vector3 {
-    return new Vector3(BOARD_CENTER.x, BOARD_CENTER.y, 12)
+    return new Vector3(BOARD_CENTER.x + 6, BOARD_CENTER.y - 14, 0)
   }
 
   resize(): void {
@@ -154,18 +179,36 @@ export class SandboxScene {
     this.renderer.setSize(c.clientWidth, c.clientHeight, false)
     this.camera.aspect = c.clientWidth / Math.max(1, c.clientHeight)
     this.camera.updateProjectionMatrix()
+    this.fit()
   }
 
+  /** Sets the viewing direction ("3d" or straight down) and fits everything in view. */
   setCamera(view: "3d" | "top"): void {
-    if (view === "top") {
-      this.camera.position.set(3, 90, 460)
-      this.controls.target.set(3, 92, 0)
-    } else {
-      this.camera.position.set(240, -200, 230)
-      this.controls.target.set(0, 85, 25)
+    this.viewDir.copy(view === "top" ? new Vector3(0, -0.02, 1) : new Vector3(170, -40, 420)).normalize()
+    this.fit()
+  }
+
+  /** Moves the camera back along the current viewing direction until the bounding box of insole, foot and board
+   *  (with a margin) is fully inside the canvas. Call on resize and when the foot model changes. */
+  fit(keepDirection = true): void {
+    if (keepDirection && this.controls.target.lengthSq() > 0) this.viewDir.copy(this.camera.position).sub(this.controls.target).normalize()
+    const box = new Box3(new Vector3(-48, -64, 0), new Vector3(62, 245, 70))
+    const center = box.getCenter(new Vector3())
+    this.controls.target.copy(center)
+    const corners = [0, 1].flatMap((i) => [0, 1].flatMap((j) => [0, 1].map((k) => new Vector3(i ? box.max.x : box.min.x, j ? box.max.y : box.min.y, k ? box.max.z : box.min.z))))
+    let dist = 150
+    for (let n = 0; n < 80; n++, dist *= 1.04) {
+      this.camera.position.copy(center).addScaledVector(this.viewDir, dist)
+      this.camera.lookAt(center)
+      this.camera.updateMatrixWorld(true)
+      // keep clear of the segmented control on top and the legend below
+      if (corners.every((c) => { const v = c.clone().project(this.camera); return Math.abs(v.x) < 0.94 && v.y < 0.8 && v.y > -0.85 })) break
     }
+    this.camera.far = Math.max(3000, dist * 3)
+    this.camera.updateProjectionMatrix()
     this.controls.update()
   }
+  private viewDir = new Vector3(170, -40, 420).normalize()
 
   /** Surface height of the insole at (x, y), mm. */
   heightAt(x: number, y: number): number {
@@ -198,7 +241,8 @@ export class SandboxScene {
     return hit && hit.point.z > 0.4 ? { x: hit.point.x, y: hit.point.y } : null
   }
 
-  /** Discs lying on the insole (tilted to the surface) with a colored active-area ring; the selected one gets a halo. */
+  /** Discs lying on the insole (tilted to the surface), each with a faint grab handle ring. The selected one gets an ink
+   *  halo, the hinted one an orange one. Wires are rebuilt to match. */
   setSensors(list: readonly SensorVis[], selected: number | null): void {
     this.discs.clear()
     list.forEach((s, i) => {
@@ -207,17 +251,17 @@ export class SandboxScene {
       const hy = this.insole.heightAt(s.x, s.y + 2) - this.insole.heightAt(s.x, s.y - 2)
       g.quaternion.setFromUnitVectors(Z, new Vector3(-hx / 4, -hy / 4, 1).normalize())
       g.position.copy(this.surfacePoint(s.x, s.y, 0.2))
-      let rim = this.rimMats.get(s.color)
-      if (!rim) this.rimMats.set(s.color, (rim = new MeshBasicMaterial({ color: s.color })))
       const base = new Mesh(this.shared.base, this.baseMat)
       base.position.z = 0.25
       const pad = new Mesh(this.shared.pad, this.padMat)
       pad.position.z = 0.6
-      const ring = new Mesh(this.shared.rim, rim)
+      const ring = new Mesh(this.shared.rim, s.hinted ? this.accentMat : this.inkMat)
       ring.position.z = 0.75
-      g.add(base, pad, ring)
-      if (i === selected) {
-        const halo = new Mesh(this.shared.halo, this.haloMat)
+      const handle = new Mesh(this.shared.handle, s.hinted ? this.accentMat : this.handleMat)
+      handle.position.z = 0.4
+      g.add(base, pad, ring, handle)
+      if (i === selected || s.hinted) {
+        const halo = new Mesh(this.shared.halo, s.hinted ? this.accentMat : this.inkMat)
         halo.position.z = 0.4
         g.add(halo)
       }
@@ -226,29 +270,42 @@ export class SandboxScene {
     this.rebuildWires(list)
   }
 
-  /** Thin tubes from each sensor over the insole surface to its header pin on the board. */
+  /** Lateral (outer) edge of the insole at height y. */
+  private lateralEdgeX(y: number): number {
+    const o = this.outline
+    y = Math.max(-12, y) // below the heel the lane just continues straight
+    let best = Infinity
+    for (let i = 0; i < o.length; i++) {
+      const a = o[i], b = o[(i + 1) % o.length]
+      if (a.y > y !== b.y > y) best = Math.min(best, a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x))
+    }
+    return best
+  }
+
+  /** One bundle of wires: each leaves its sensor straight out to the outer edge, drops to the floor and runs down a
+   *  parallel lane beside the insole to the board. Lanes are ordered by sensor height (toes outermost) so no wire
+   *  crosses another; header pins are assigned in lane order for the same reason (visual only). */
   private rebuildWires(list: readonly SensorVis[]): void {
     for (const c of this.wires.children) (c as Mesh).geometry.dispose()
     this.wires.clear()
-    const outline = this.outline
-    list.forEach((s, i) => {
-      const pin = pinPosition(i)
-      const N = 28
-      const pts: Vector3[] = []
-      let lastIn = 0
-      for (let k = 0; k <= N; k++) {
-        const u = k / N
-        const x = s.x + (pin.x - s.x) * u, y = s.y + (pin.y - s.y) * u
-        if (inside(outline, x, y)) {
-          lastIn = k
-          pts.push(new Vector3(x, y, this.insole.heightAt(x, y) + 0.5))
-        } else pts.push(new Vector3(x, y, 0))
+    const LANE = 1.9, GAP = 5, BOTTOM = -24
+    const order = list.map((_, i) => i).sort((a, b) => list[b].y - list[a].y) // outermost lane first
+    order.forEach((i, rank) => {
+      const s = list[i]
+      const pin = pinPosition(rank)
+      const pts: Vector3[] = [new Vector3(s.x, s.y, this.insole.heightAt(s.x, s.y) + 0.6)]
+      const edge = this.lateralEdgeX(s.y)
+      // Stub across the insole surface to the edge.
+      for (let k = 1; k <= 6; k++) {
+        const x = s.x + ((edge + 1 - s.x) * k) / 6
+        pts.push(new Vector3(x, s.y, this.insole.heightAt(x, s.y) + 0.6))
       }
-      // Off the insole the wire descends from the edge to the header pin.
-      const z0 = pts[lastIn].z
-      for (let k = lastIn + 1; k <= N; k++) pts[k].z = z0 + (pin.z - z0) * ((k - lastIn) / (N - lastIn))
-      const tube = new Mesh(new TubeGeometry(new CatmullRomCurve3(pts), 40, 0.55, 5), new MeshBasicMaterial({ color: s.color }))
-      this.wires.add(tube)
+      // Trunk lane on the floor, following the outer edge down toward the heel.
+      for (let y = s.y; y > BOTTOM; y -= 12) pts.push(new Vector3(this.lateralEdgeX(y) - GAP - rank * LANE, y, 0.9))
+      pts.push(new Vector3(this.lateralEdgeX(BOTTOM) - GAP - rank * LANE + 4, BOTTOM - 8, 0.9))
+      pts.push(new Vector3((pin.x + pts[pts.length - 1].x) / 2, pin.y - 2, 3))
+      pts.push(pin)
+      this.wires.add(new Mesh(new TubeGeometry(new CatmullRomCurve3(pts, false, "centripetal"), 120, WIRE_RADIUS, 6), this.wireMat))
     })
   }
 
@@ -269,8 +326,8 @@ export class SandboxScene {
     if (this.foot === next) return
     if (this.foot) this.scene.remove(this.foot.mesh)
     this.foot = next
-    next.opacity = 0.2
     next.mesh.visible = this.footVisible
+    this.styleFoot()
     this.scene.add(next.mesh)
     this.poseFoot(this.lastPose, this.footRoll)
   }
@@ -291,7 +348,8 @@ export class SandboxScene {
     const m = this.foot.mesh
     const pivot = new Vector3(5, 0, 3)
     m.quaternion.setFromAxisAngle(new Vector3(0, 1, 0), -roll * FOOT_ROLL_RAD)
-    m.position.copy(pivot).sub(pivot.clone().applyQuaternion(m.quaternion))
+    m.scale.setScalar(FOOT_SCALE)
+    m.position.copy(pivot).sub(pivot.clone().applyQuaternion(m.quaternion)).add(new Vector3(0, 1.5, 0))
   }
 
   render(): boolean {
