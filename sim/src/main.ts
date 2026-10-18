@@ -503,7 +503,7 @@ async function loadScanUrl(url: string, title: string): Promise<void> {
   }
 }
 /** Bundled iPhone LiDAR scans, shared with permission (public/models/scan-<key>.stl). */
-const SCANS = { ishaan: "Ishaan's foot", prakhar: "Prakhar's foot" } as const
+const SCANS = { ishaan: "Ishaan's foot", prakhar: "Prakhar's foot", pranav: "Pranav's foot" } as const
 type ScanKey = keyof typeof SCANS
 const loadExampleScan = (key: ScanKey) => loadScanUrl(`${import.meta.env.BASE_URL}models/scan-${key}.stl`, SCANS[key])
 
@@ -676,7 +676,7 @@ else if (q.get("live") === "demo") {
   const t = (q.get("foot") ?? "normal") as FootType
   startLive(connectDemoDevice((q.get("side") as "left" | "right") ?? "left", t), footKeyFor(t))
 }
-// ?scan=ishaan|prakhar loads a bundled scan (example = ishaan, the original link); in dev builds ?scan=<url> loads any STL.
+// ?scan=ishaan|prakhar|pranav loads a bundled scan (example = ishaan, the original link); in dev builds ?scan=<url> loads any STL.
 const scanParam = q.get("scan") === "example" ? "ishaan" : q.get("scan")
 if (scanParam && scanParam in SCANS) await loadExampleScan(scanParam as ScanKey)
 else if (scanParam && import.meta.env.DEV) await loadScanUrl(scanParam, "Your foot scan")
