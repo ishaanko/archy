@@ -32,3 +32,40 @@ export async function loadTemplate(): Promise<Template> {
   const res = await fetch(`${import.meta.env.BASE_URL}data/mun104.json`)
   return res.json()
 }
+
+export interface FeetInfo {
+  stats: { n: number; percentiles: Record<string, number> }
+  picks: Record<"flatter" | "typical" | "higher", { id: string; ai: number }>
+}
+
+/** Loads the scanned-foot summary (sim/public/data/feet.json, written by scripts/pick_feet.py). */
+export async function loadFeet(): Promise<FeetInfo> {
+  const res = await fetch(`${import.meta.env.BASE_URL}data/feet.json`)
+  return res.json()
+}
+
+/** One real walking step from the CAD WALK clinical pressure plate (sim/public/data/cadwalk.json, scripts/convert_cadwalk.py). */
+export interface CadStep {
+  id: string
+  title: string
+  cohort: string
+  subject: string
+  side: "left" | "right"
+  ai: number
+  fs: number
+  /** kPa per quantization level. */
+  qstep: number
+  grid: { nx: number; ny: number; cell: number; x0: number; y0: number }
+  /** Per frame, nx * ny levels (row-major, row 0 = heel). */
+  frames: number[][]
+}
+
+/** Loads the plate steps; an empty list if the file is missing so the rest of the app still works. */
+export async function loadCadwalk(): Promise<CadStep[]> {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}data/cadwalk.json`)
+    return res.ok ? (await res.json()).steps : []
+  } catch {
+    return []
+  }
+}

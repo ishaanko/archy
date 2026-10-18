@@ -3,52 +3,125 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Insole pressure simulation</title>
+    <meta name="color-scheme" content="dark" />
+    <title>Foot arch check</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main>
-      <canvas id="view" tabindex="0" aria-label="3D insole view. Arrow keys rotate, plus and minus zoom, drag to orbit, scroll to zoom."></canvas>
-      <aside aria-label="Controls and results">
-        <h1>Sensor to heatmap to insole</h1>
-        <section aria-label="Source">
-          <label>Source <select id="source" aria-label="Pressure data source"></select></label>
-          <p id="source-note"></p>
-        </section>
-        <section aria-label="Playback">
+    <div id="start">
+      <h1>Foot arch check</h1>
+      <div class="choices">
+        <section aria-labelledby="h-example">
+          <h2 id="h-example">Try an example</h2>
+          <button type="button" class="big" data-example="1">Example 1: Flatter arch</button>
+          <button type="button" class="big" data-example="2">Example 2: Typical arch</button>
+          <button type="button" class="big" data-example="3">Example 3: Higher arch</button>
           <div class="row">
-            <button id="play" type="button" aria-label="Play or pause the stance">Play</button>
-            <label>Speed <select id="speed" aria-label="Playback speed">
-              <option value="0.1">0.1x</option><option value="0.25" selected>0.25x</option><option value="0.5">0.5x</option><option value="1">1x</option>
-            </select></label>
-            <output id="time" aria-live="off"></output>
+            <button type="button" id="go-plate">Clinic plate walk (real, see what 6 sensors would read)</button>
+            <label>Person <select id="plate-step" aria-label="Clinic plate recording, which person"></select></label>
           </div>
-          <input id="scrub" type="range" min="0" max="1" step="1" value="0" aria-label="Scrub through the stance phase" />
-        </section>
-        <section aria-label="Display">
           <div class="row">
-            <label>Map <select id="mapmode" aria-label="Show frame or peak pressure"><option value="frame">frame</option><option value="peak">peak</option><option value="diff">vs healthy (MUN104)</option></select></label>
+            <button type="button" id="go-recorded">Recorded walk (real sensor insole)</button>
+            <label>Person <select id="recorded" aria-label="Recorded walk, which person and foot"></select></label>
+          </div>
+        </section>
+        <section aria-labelledby="h-sensor">
+          <h2 id="h-sensor">Use my sensor</h2>
+          <fieldset>
+            <legend>Which foot?</legend>
+            <label><input type="radio" name="side" value="left" checked /> Left</label>
+            <label><input type="radio" name="side" value="right" /> Right</label>
+          </fieldset>
+          <button type="button" class="big" id="connect">Connect sensor</button>
+          <p id="serial-note" hidden>This browser cannot connect to sensors. Use Chrome or Edge, or try the demo.</p>
+          <div class="row">
+            <button type="button" id="go-demo">Demo sensor</button>
+            <label>Demo foot <select id="demo-foot" aria-label="Which foot the demo sensor pretends to be">
+              <option value="flat">Flatter arch</option><option value="normal" selected>Typical arch</option><option value="high arch">Higher arch</option>
+            </select></label>
+          </div>
+          <p id="connect-error" role="alert" hidden></p>
+        </section>
+      </div>
+      <p class="foot">Runs in your browser. Nothing is uploaded. <a href="./sandbox.html">Sensor sandbox</a></p>
+    </div>
+
+    <main id="app" hidden>
+      <canvas id="view" tabindex="0" aria-label="3D view of the foot on the insole. Drag to orbit, scroll to zoom. Arrow keys rotate, plus and minus zoom."></canvas>
+      <aside aria-label="Walkthrough">
+        <header>
+          <button type="button" id="back">Back</button>
+          <nav aria-label="Steps">
+            <button type="button" data-screen="watch">1 Watch</button>
+            <button type="button" data-screen="result">2 Result</button>
+            <button type="button" data-screen="insole">3 Insole</button>
+          </nav>
+        </header>
+
+        <section id="s-watch" aria-label="Watch">
+          <h2 id="who"></h2>
+          <button type="button" id="play" class="big" aria-label="Play or pause">Pause</button>
+          <fieldset id="variant-box" hidden>
+            <legend>Show</legend>
+            <label><input type="radio" name="variant" value="plate" checked /> Clinic pressure plate</label>
+            <label><input type="radio" name="variant" value="kit" /> Your 6-sensor kit</label>
+          </fieldset>
+          <label class="check"><input id="show-foot" type="checkbox" checked /> Show foot</label>
+          <div id="live-box" hidden>
+            <p id="live-status" aria-live="polite"></p>
+            <ul id="bars" aria-label="Pressure under each sensor"></ul>
+          </div>
+          <div id="legend" role="img" aria-label="Color scale. Darker is less pressure, lighter is more pressure.">
+            <div id="legend-bar"></div>
+            <div class="row between"><span>Less pressure</span><span>More pressure</span></div>
+          </div>
+          <button type="button" id="to-result" class="big next">See result</button>
+        </section>
+
+        <section id="s-result" aria-label="Result" hidden>
+          <p id="headline" class="headline" aria-live="polite"></p>
+          <div id="scale" role="img" aria-label="">
+            <div class="track"><span class="marker" id="marker"></span></div>
+            <div class="labels"><span>Lower</span><span>Typical</span><span>Higher</span></div>
+          </div>
+          <p id="meaning"></p>
+          <p id="disclaimer"></p>
+          <button type="button" id="to-insole" class="big next">See your insole</button>
+        </section>
+
+        <section id="s-insole" aria-label="Your insole" hidden>
+          <h2>Your insole</h2>
+          <p id="support" class="headline"></p>
+          <p id="insole-more"></p>
+          <button type="button" id="download" class="big">Download for 3D printing (STL)</button>
+        </section>
+
+        <details id="details">
+          <summary>Show details</summary>
+          <table id="indices"></table>
+          <p id="votes"></p>
+          <p id="scan-note"></p>
+          <div class="row">
+            <label>Map <select id="mapmode" aria-label="Show frame, peak, or difference from healthy"><option value="frame">frame</option><option value="peak">peak</option><option value="diff">vs healthy (MUN104)</option></select></label>
             <label>Surface <select id="surface" aria-label="Flat or pressure terrain"><option value="flat">flat</option><option value="terrain">terrain</option></select></label>
             <label>Colors <select id="cmap" aria-label="Color map"><option value="viridis">viridis</option><option value="cividis">cividis</option></select></label>
+            <label>Speed <select id="speed" aria-label="Playback speed"><option value="0.1">0.1x</option><option value="0.25" selected>0.25x</option><option value="0.5">0.5x</option><option value="1">1x</option></select></label>
           </div>
           <div class="row">
             <label><input id="patterns" type="checkbox" /> Patterns</label>
             <label><input id="sensors" type="checkbox" checked /> Sensors</label>
             <label><input id="cop" type="checkbox" checked /> CoP</label>
+            <output id="time" aria-live="off"></output>
           </div>
-          <div id="legend" role="img" aria-label="Pressure scale"><div id="legend-bar"></div><div class="row between"><span id="legend-lo">0</span><span id="legend-max"></span></div></div>
+          <input id="scrub" type="range" min="0" max="1" step="1" value="0" aria-label="Scrub through the step" />
           <output id="live"></output>
-        </section>
-        <section aria-label="Arch indices">
-          <table id="indices"></table>
-          <p id="votes"></p>
-          <p id="verdict"></p>
-        </section>
-        <section aria-label="Insole">
-          <p id="insole-info"></p>
-          <button id="download" type="button" aria-label="Download insole as binary STL">Download STL</button>
-        </section>
-        <footer>Runs in your browser. Nothing is uploaded.</footer>
+          <p class="refs">
+            Arch index: Cavanagh and Rodgers 1987 (&gt;0.26 flat, &lt;0.21 high). Staheli: Staheli et al. 1987 (&gt;0.89 flat, &lt;0.44 high). Chippaux-Smirak: Forriol and Pascual 1990 (&gt;45% flat).
+            Healthy template: MUN104, Pataky et al. 2011. Foot scans: Schuster et al. 2024, CC0.
+          </p>
+          <ul id="values" aria-label="Sensor values in kilopascals"></ul>
+        </details>
+        <p class="foot">Runs in your browser. Nothing is uploaded.</p>
       </aside>
     </main>
     <script type="module" src="/src/main.ts"></script>

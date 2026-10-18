@@ -20,11 +20,21 @@ export interface PressureModel {
   weights: Float32Array
 }
 
-const SIGMA = 11 // mm, Gaussian kernel width (about 0.6 sensor spacing)
-const FADE_DIST = 20 // mm, cells farther than this from every sensor fade toward zero
+/** Interpolation kernel: `sigma` is the Gaussian width, cells farther than `fade` from every sensor decay toward zero (both mm). */
+export interface Kernel {
+  sigma: number
+  fade: number
+}
+
+/** 48-sensor insole: sigma is about 0.6 sensor spacing. */
+export const DENSE_KERNEL: Kernel = { sigma: 11, fade: 20 }
+/** 6-sensor insole: sensors are ~60 mm apart, so each reads as a blob. A wider kernel would bridge the gaps and make every foot
+ *  look flat (midfoot contact appears even where no sensor is loaded), so this one stays close to the dense kernel. */
+export const SPARSE_KERNEL: Kernel = { sigma: 11, fade: 20 }
 
 /** Builds the Gaussian-RBF interpolator (normalized weights with a fade term, so unsensed areas decay to 0). */
-export function createPressureModel(sensors: readonly Point[], outline: readonly Point[], cell = 2.5): PressureModel {
+export function createPressureModel(sensors: readonly Point[], outline: readonly Point[], kernel: Kernel = DENSE_KERNEL, cell = 2.5): PressureModel {
+  const SIGMA = kernel.sigma, FADE_DIST = kernel.fade
   const xs = outline.map((p) => p.x), ys = outline.map((p) => p.y)
   const x0 = Math.min(...xs) - cell, y0 = Math.min(...ys) - cell
   const nx = Math.ceil((Math.max(...xs) + cell - x0) / cell), ny = Math.ceil((Math.max(...ys) + cell - y0) / cell)
