@@ -80,6 +80,8 @@ final class ArchyFlowUITests: XCTestCase {
         capture("voice-status")
         XCTAssertTrue(test.label.contains("Grok voice"), "Expected Grok, got: \(test.label)")
         XCTAssertFalse(test.label.contains("on-device"), "Fell back to on-device: \(test.label)")
+    }
+
     func testOnboardingMenuStaysOnEveryStep() {
         let menu = app.buttons["onboarding.menu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 10), "Missing menu on welcome")
