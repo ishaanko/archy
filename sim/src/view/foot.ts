@@ -7,19 +7,25 @@ const TOE_HINGE = [-10, 25] as const // mm around the pivot over which the toes 
 
 /** Plantar contact = scan vertices within this height of the sole plane (GLB units, same band pick_feet.py uses). */
 const SOLE_BAND = 3
-/** Footprint clearance from the insole outline, mm. The foot is scaled up until it just keeps this much. */
+/** Clearance kept between the foot silhouette and the insole outline, mm. */
 const EDGE_MARGIN = 2
-/** A foot that cannot keep the margin above STRICT_MIN_SCALE (a flat arch fills the insole's medial cut-in, and the
- *  generic toe box is narrow) may relax the margin by this much, mm: it ends up overhanging the outline by at most
- *  MAX_OVERHANG - EDGE_MARGIN, at the largest scale that manages that. */
-const MAX_OVERHANG = 6
-const STRICT_MIN_SCALE = 0.96
-const MAX_SCALE = 1.04
-const MIN_SCALE = 0.88
+/** The foot is stretched along y to span the insole: rear of the heel this far from the heel edge, toe tips this far
+ *  before the toe edge, mm. */
+const HEEL_INSET = 6
+const TOE_MARGIN = 6
+/** Row-by-row width scale (foot silhouette width -> insole width at the same y) is limited to this range, so the foot is
+ *  squeezed or widened but never mangled. */
+const MIN_WIDTH_SCALE = 0.72
+const MAX_WIDTH_SCALE = 1.12
+const ROW_SMOOTH = 10 // mm half-window used to smooth the per-row scale and offset
+/** Pre-fit width scale used while searching for the rotation and offset. */
+const SEARCH_WIDTH_SCALE = 0.85
 /** Ball of the foot as a fraction of the footprint length from the heel (metatarsal heads). */
 const BALL_FRACTION = 0.72
 /** Contact patches (heel pad, ball) over which the sole is seated on the insole surface, mm radius. */
 const SEAT_RADIUS = 12
+/** Height (scan units) up to which the foot outline must fit inside the insole outline. */
+const SILHOUETTE_Z = 12
 const ANKLE_Z = 35 // mm (rest frame, scan units) above which the leg stub is domed over
 const ANKLE_CAP = 22 // mm (scan units) the domed leg may rise above ANKLE_Z
 
@@ -47,12 +53,15 @@ function outlineField() {
 }
 
 /** Rigid + uniform-scale placement of the scan: p' = k * Rz(theta) p + (dx, dy). */
-interface Placement { k: number; theta: number; dx: number; dy: number }
+/** Placement of the scan: p' = Rz(theta) * diag(kx, ky) p + (dx, dy), then a per-row width warp `fillX` that stretches
+ *  each row of the foot between the insole's medial and lateral edges (so the foot fills the outline). */
+interface Placement { kx: number; ky: number; theta: number; dx: number; dy: number; fillX: (x: number, y: number) => number; widthScale: { min: number; max: number } }
 
-/** Registers the scan's footprint (xy of the vertices below the ankle, scan units) to the insole outline.
- *  Largest uniform scale k (heel-to-toe length and width both count, since every footprint point must clear the outline
- *  by EDGE_MARGIN) for which some small rotation about z and translation keeps the whole footprint inside; among those,
- *  the placement that maximizes the smallest clearance. */
+/** Registers the scan's silhouette (xy of the vertices up to SILHOUETTE_Z, scan units) to the insole outline, filling it.
+ *  1. Length: ky spans heel to toes between the insole ends (HEEL_INSET, TOE_MARGIN), independent of width.
+ *  2. Rotation about z and translation: the best maximin clearance at a nominal width squeeze.
+ *  3. Width: per y row, the foot's lateral extent is mapped onto the insole's (EDGE_MARGIN inside each edge), with the
+ *     row scale clamped to [MIN_WIDTH_SCALE, MAX_WIDTH_SCALE] and smoothed along y. */
 function register(foot: Float32Array): Placement {
   const field = outlineField()
   const pts: number[] = []
@@ -61,62 +70,79 @@ function register(foot: Float32Array): Placement {
   let minY = Infinity, maxY = -Infinity, sx = 0, n = 0
   for (let i = 0; i < foot.length; i += 2) { minY = Math.min(minY, foot[i + 1]); maxY = Math.max(maxY, foot[i + 1]); sx += foot[i]; n++ }
   const cx = sx / n
-  let allow = 0
-  /** Smallest outline clearance of the footprint plus `allow` mm of tolerance, bailing out early below `floor`. */
-  const clearance = (k: number, th: number, dx: number, dy: number, floor: number) => {
-    const c = Math.cos(th) * k, s = Math.sin(th) * k
+  const ky = (field.maxY - TOE_MARGIN - (field.minY + HEEL_INSET)) / (maxY - minY)
+  const kx = SEARCH_WIDTH_SCALE
+  const clearance = (th: number, dx: number, dy: number, floor: number) => {
+    const c = Math.cos(th), s = Math.sin(th)
     let m = Infinity
     for (let i = 0; i < pts.length; i += 2) {
-      m = Math.min(m, field.at(pts[i] * c - pts[i + 1] * s + dx, pts[i] * s + pts[i + 1] * c + dy) + allow)
+      const x = pts[i] * kx, y = pts[i + 1] * ky
+      m = Math.min(m, field.at(x * c - y * s + dx, x * s + y * c + dy))
       if (m < floor) return m
     }
     return m
   }
-  /** Among placements at scale `p.k` that keep the clearance `floor`, the one with the foot centered along the insole and the
-   *  axes aligned (small rotation): the clearance search above only guarantees feasibility, not a sensible spot. */
-  const centered = (p: Placement, floor: number): Placement => {
-    const toeEdge = field.maxY
-    let pick = p, cost = Infinity
-    for (let th = p.theta - 0.12; th <= p.theta + 0.12; th += 0.0175)
-      for (let dx = p.dx - 12; dx <= p.dx + 12; dx += 1.5)
-        for (let dy = p.dy - 20; dy <= p.dy + 20; dy += 1.5) {
-          if (clearance(p.k, th, dx, dy, floor) < floor) continue
-          const c = Math.cos(th) * p.k, s = Math.sin(th) * p.k
-          let lo = Infinity, hi = -Infinity
-          for (let i = 0; i < pts.length; i += 2) { const y = pts[i] * s + pts[i + 1] * c + dy; lo = Math.min(lo, y); hi = Math.max(hi, y) }
-          const cst = Math.abs(lo - field.minY - (toeEdge - hi)) + 60 * Math.abs(th)
-          if (cst < cost) { cost = cst; pick = { k: p.k, theta: th, dx, dy } }
-        }
-    return pick
+  let at = { theta: 0, dx: 0, dy: 0, m: -Infinity }
+  const dx0 = field.cx - cx * kx, dy0 = field.minY + HEEL_INSET - minY * ky
+  const attempt = (theta: number, dx: number, dy: number) => {
+    const m = clearance(theta, dx, dy, at.m)
+    if (m > at.m) at = { theta, dx, dy, m }
   }
-  /** Best placement at scale k (maximin clearance), searched coarse then fine around the heel-aligned start. */
-  const searchAt = (k: number, floor: number): Placement & { m: number } => {
-    let at: Placement & { m: number } = { k, theta: 0, dx: 0, dy: 0, m: -Infinity }
-    const dx0 = field.cx - cx * k, dy0 = field.minY + EDGE_MARGIN + 2 - minY * k
-    for (let th = -0.26; th <= 0.26 + 1e-9; th += 0.026)
-      for (let ddx = -26; ddx <= 26; ddx += 3)
-        for (let ddy = -16; ddy <= 40; ddy += 3) {
-          const m = clearance(k, th, dx0 + ddx, dy0 + ddy, Math.max(at.m, floor))
-          if (m > at.m) at = { k, theta: th, dx: dx0 + ddx, dy: dy0 + ddy, m }
-        }
-    for (const step of [1, 0.5])
-      for (let ddx = -2; ddx <= 2; ddx += step)
-        for (let ddy = -2; ddy <= 2; ddy += step)
-          for (const dth of [-0.0175, 0, 0.0175]) {
-            const m = clearance(k, at.theta + dth, at.dx + ddx, at.dy + ddy, Math.max(at.m, floor))
-            if (m > at.m) at = { k, theta: at.theta + dth, dx: at.dx + ddx, dy: at.dy + ddy, m }
-          }
-    return at
+  for (let th = -0.2; th <= 0.2 + 1e-9; th += 0.0175)
+    for (let ddx = -24; ddx <= 24; ddx += 3)
+      for (let ddy = -6; ddy <= 6; ddy += 2) attempt(th, dx0 + ddx, dy0 + ddy)
+  const c0 = at
+  for (let ddx = -2; ddx <= 2; ddx += 0.5)
+    for (let ddy = -2; ddy <= 2; ddy += 0.5)
+      for (const dth of [-0.01, 0, 0.01]) attempt(c0.theta + dth, c0.dx + ddx, c0.dy + ddy)
+
+  // Per-row width fit, on a 1 mm grid of y over the insole.
+  const rows = Math.ceil(field.maxY - field.minY) + 1
+  const fmin = new Float32Array(rows).fill(NaN), fmax = new Float32Array(rows).fill(NaN)
+  const cs = Math.cos(at.theta), sn = Math.sin(at.theta)
+  for (let i = 0; i < foot.length; i += 2) {
+    const x = foot[i] * kx, y = foot[i + 1] * ky
+    const X = x * cs - y * sn + at.dx, Y = x * sn + y * cs + at.dy
+    const r = Math.round(Y - field.minY)
+    if (r < 0 || r >= rows) continue
+    fmin[r] = Number.isNaN(fmin[r]) ? X : Math.min(fmin[r], X)
+    fmax[r] = Number.isNaN(fmax[r]) ? X : Math.max(fmax[r], X)
   }
-  for (const [pass, from, to] of [[0, MAX_SCALE, STRICT_MIN_SCALE], [MAX_OVERHANG, 1, MIN_SCALE]] as const) {
-    allow = pass
-    for (let k = from; k >= to - 1e-9; k -= 0.01) {
-      const at = searchAt(k, EDGE_MARGIN)
-      if (at.m >= EDGE_MARGIN) return centered(at, EDGE_MARGIN)
+  const fill = <T extends Float32Array>(a: T) => { // carry the nearest known row into gaps
+    let last = NaN
+    for (let r = 0; r < rows; r++) { if (Number.isNaN(a[r])) a[r] = last; else last = a[r] }
+    last = NaN
+    for (let r = rows - 1; r >= 0; r--) { if (Number.isNaN(a[r])) a[r] = last; else last = a[r] }
+  }
+  fill(fmin); fill(fmax)
+  const scale = new Float32Array(rows), shift = new Float32Array(rows) // x' = ic + (x - fc) * scale (ic: insole row center, fc: foot row center)
+  for (let r = 0; r < rows; r++) {
+    const y = field.minY + r
+    let lo = NaN, hi = NaN
+    for (let x = -100; x <= 120; x += 0.5) if (field.at(x, y) >= EDGE_MARGIN) { if (Number.isNaN(lo)) lo = x; hi = x }
+    if (Number.isNaN(lo)) { scale[r] = 1; continue }
+    scale[r] = Math.min(MAX_WIDTH_SCALE, Math.max(MIN_WIDTH_SCALE, (hi - lo) / Math.max(1, fmax[r] - fmin[r])))
+    shift[r] = (lo + hi) / 2 // insole row center; made relative to the smoothed foot center below
+  }
+  const smooth1 = (a: Float32Array) => {
+    const out = new Float32Array(rows)
+    for (let r = 0; r < rows; r++) {
+      let sum = 0, cnt = 0
+      for (let k = -ROW_SMOOTH; k <= ROW_SMOOTH; k++) if (r + k >= 0 && r + k < rows) { sum += a[r + k]; cnt++ }
+      out[r] = sum / cnt
     }
+    return out
   }
-  allow = MAX_OVERHANG
-  return searchAt(MIN_SCALE, -Infinity)
+  const sScale = smooth1(scale), ic = smooth1(shift)
+  const fc = smooth1(Float32Array.from(fmin, (v, r) => (v + fmax[r]) / 2))
+  let wmin = Infinity, wmax = -Infinity
+  for (let r = 0; r < rows; r++) if (fmax[r] - fmin[r] > 20) { wmin = Math.min(wmin, sScale[r] * kx); wmax = Math.max(wmax, sScale[r] * kx) }
+  const fillX = (x: number, y: number) => {
+    const t = Math.min(rows - 1, Math.max(0, y - field.minY)), r0 = Math.floor(t), r1 = Math.min(rows - 1, r0 + 1), f = t - r0
+    const lerp = (a: Float32Array) => a[r0] * (1 - f) + a[r1] * f
+    return lerp(ic) + (x - lerp(fc)) * lerp(sScale)
+  }
+  return { kx, ky, theta: at.theta, dx: at.dx, dy: at.dy, fillX, widthScale: { min: wmin, max: wmax } }
 }
 
 /** A scanned foot (GLB in the canonical frame: sole on z = 0, y heel -> toe) registered to the insole outline and
@@ -134,6 +160,8 @@ export class FootModel {
   ballY = 0
   /** Footprint centroid x, mm (axis for roll). */
   centerX = 0
+  /** Length scale (y) and the range of the row-wise width scale (x) applied to the scan, relative to the GLB (for inspection). */
+  scale: { x: { min: number; max: number }; y: number } = { x: { min: 1, max: 1 }, y: 1 }
   /** Height of the sole above the insole base plane; set by `seat`. */
   seatZ = 3
 
@@ -153,9 +181,11 @@ export class FootModel {
   private fit(): void {
     const r = this.rest
     const footprint: number[] = []
-    // Register the silhouette of the foot below the ankle, not just the sole: the foot flares out above the contact patch.
-    for (let i = 0; i < r.length; i += 3) if (r[i + 2] < ANKLE_Z) footprint.push(r[i], r[i + 1])
-    const { k, theta, dx, dy } = register(Float32Array.from(footprint))
+    // Register the foot's outline just above the sole (it flares out over the contact patch), below the malleoli that overhang any insole.
+    for (let i = 0; i < r.length; i += 3) if (r[i + 2] < SILHOUETTE_Z) footprint.push(r[i], r[i + 1])
+    const { kx, ky, theta, dx, dy, fillX, widthScale } = register(Float32Array.from(footprint))
+    this.scale = { x: widthScale, y: ky }
+    const kz = Math.sqrt(kx * ky)
     const c = Math.cos(theta), s = Math.sin(theta)
     // Leg stub: pinch xy toward the stub's center and compress z, so the open cut at the top closes into a dome.
     let top = 0, cx = 0, cy = 0, maxZ = 0
@@ -175,9 +205,11 @@ export class FootModel {
         y = cy + (y - cy) * pinch
         z = ANKLE_Z + ANKLE_CAP * Math.sin((t * Math.PI) / 2)
       }
-      r[i] = (x * c - y * s) * k + dx
-      r[i + 1] = (x * s + y * c) * k + dy
-      r[i + 2] = z * k
+      const px = x * kx, py = y * ky
+      const X = px * c - py * s + dx, Y = px * s + py * c + dy
+      r[i] = fillX(X, Y)
+      r[i + 1] = Y
+      r[i + 2] = z * kz
       if (isSole) sole.push(r[i], r[i + 1], r[i + 2])
     }
     this.sole = Float32Array.from(sole)

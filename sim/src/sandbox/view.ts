@@ -160,8 +160,8 @@ export class SandboxScene {
     const m = this.foot.mesh.material as MeshStandardMaterial
     m.color.set(0xf4f1ea)
     m.emissive.set(0xf4f1ea)
-    m.emissiveIntensity = 0.25
-    this.foot.opacity = 0.24
+    m.emissiveIntensity = 0.4
+    this.foot.opacity = 0.45
   }
 
   setBoard(isEsp: boolean): void {
