@@ -1,9 +1,11 @@
 import { archRidge, buildInsole, type InsoleLayout, type InsoleMesh } from "./insole"
 import { footOutline, lateralEdgeX, medialEdgeX } from "./outline"
-import { makeGrid, type Grid } from "./pressure"
+import { SENSOR_POSITIONS } from "../hardware/layout"
+import { makeGrid, sampleGrid, type Grid } from "./pressure"
 import type { ScanResult } from "./scan"
 import { archShape, gauss, PEAK_KPA, peakTime, STANCE_SECONDS } from "./synth"
 import { templateAt, type Template } from "./template"
+import type { Point } from "./types"
 
 /** Everything the own-scan flow shows that is not a measurement: an insole sized from the scan, and an ESTIMATED pressure
  *  walk (never measured), before and with that insole. */
@@ -20,12 +22,18 @@ export interface ScanEstimate {
   mesh: InsoleMesh
   /** How much the estimated peak pressure drops with the insole, percent. */
   peakDropPercent: number
+  /** The 6-sensor kit's spots (hardware/layout.ts order and names) moved onto this foot's outline. */
+  spots: Point[]
 }
 
 export interface PressureWalk {
   /** nFrames x grid size, kPa. */
   maps: Float32Array
   peak: Float32Array
+  /** nFrames x spots, kPa: what a sensor at each spot would read (small patch average). */
+  spotFrames: Float32Array
+  /** Highest reading per spot over the step, kPa. */
+  spotPeaks: Float32Array
 }
 
 const FS = 125
@@ -54,6 +62,21 @@ export function scanInsoleLayout(scan: ScanResult): InsoleLayout {
   }
 }
 
+/** Generic-frame contact extent of MUN104 (core/template.ts), used to map between the generic foot and a scan. */
+const Y0 = -14, Y1 = 236
+
+/** Moves generic-frame points onto the scan outline: the inverse of the warp in `estimateScan` (heel-to-toe position by
+ *  foot length, medial-lateral position by the inset row width), so a spot lands on the same part of every foot. */
+function toScanFrame(scan: ScanResult, points: readonly Point[]): Point[] {
+  const generic = footOutline()
+  return points.map((p) => {
+    const y = ((p.y - Y0) / (Y1 - Y0)) * scan.length
+    const gl = lateralEdgeX(generic, p.y) + EDGE_INSET, gm = medialEdgeX(generic, p.y) - EDGE_INSET
+    const sl = lateralEdgeX(scan.outline, y) + EDGE_INSET, sm = medialEdgeX(scan.outline, y) - EDGE_INSET
+    return { x: sl + ((p.x - gl) / Math.max(1, gm - gl)) * (sm - sl), y }
+  })
+}
+
 const smooth = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
   return t * t * (3 - 2 * t)
@@ -79,7 +102,6 @@ export function estimateScan(scan: ScanResult, template: Template, weightKg: num
   const shaped = archShape(flatness, template, peakRef)
   const kpa = (PEAK_KPA * weightKg) / REF_WEIGHT_KG / peakRef
   const L = scan.length
-  const Y0 = -14, Y1 = 236 // MUN104 contact extent in the generic frame (core/template.ts)
 
   const nFrames = Math.round(STANCE_SECONDS * FS)
   const maps = new Float32Array(nFrames * size)
@@ -108,7 +130,8 @@ export function estimateScan(scan: ScanResult, template: Template, weightKg: num
     }
     archMask[c] = archRidge(layout, medialEdgeX(outline, y), x, y)
   }
-  const before = walk(maps, size, nFrames)
+  const spots = toScanFrame(scan, SENSOR_POSITIONS)
+  const before = walk(grid, spots, maps, nFrames)
 
   const mesh = buildInsole(outline, grid, before.peak, null, "left", undefined, layout)
   const k = Math.min(0.3, 0.025 * mesh.archHeight)
@@ -131,16 +154,29 @@ export function estimateScan(scan: ScanResult, template: Template, weightKg: num
     }
     for (const c of cells) out[f * size + c] += (moved * archMask[c]) / archSum
   }
-  const withInsole = walk(out, size, nFrames)
+  const withInsole = walk(grid, spots, out, nFrames)
   const max = (a: Float32Array) => a.reduce((m, v) => Math.max(m, v), 0)
   return {
     grid, cells, fs: FS, nFrames, reference, before, withInsole, mesh,
     peakDropPercent: Math.max(0, Math.round(100 * (1 - max(withInsole.peak) / max(before.peak)))),
+    spots,
   }
 }
 
-function walk(maps: Float32Array, size: number, nFrames: number): PressureWalk {
+const PATCH = [[0, 0], [5, 0], [-5, 0], [0, 5], [0, -5]] as const
+
+function walk(grid: Grid, spots: readonly Point[], maps: Float32Array, nFrames: number): PressureWalk {
+  const size = grid.nx * grid.ny, n = spots.length
   const peak = new Float32Array(size)
-  for (let f = 0; f < nFrames; f++) for (let c = 0; c < size; c++) peak[c] = Math.max(peak[c], maps[f * size + c])
-  return { maps, peak }
+  const spotFrames = new Float32Array(nFrames * n), spotPeaks = new Float32Array(n)
+  for (let f = 0; f < nFrames; f++) {
+    const frame = maps.subarray(f * size, (f + 1) * size)
+    for (let c = 0; c < size; c++) peak[c] = Math.max(peak[c], frame[c])
+    spots.forEach((s, k) => {
+      const v = PATCH.reduce((sum, [dx, dy]) => sum + sampleGrid(grid, frame, s.x + dx, s.y + dy), 0) / PATCH.length
+      spotFrames[f * n + k] = v
+      spotPeaks[k] = Math.max(spotPeaks[k], v)
+    })
+  }
+  return { maps, peak, spotFrames, spotPeaks }
 }
