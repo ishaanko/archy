@@ -1,8 +1,9 @@
 import "./style.css"
 import { colormapCss, type ColormapName } from "./core/colormap"
 import { FLAT_POSE, poseFromCop, stancePose, type FootPose } from "./core/gait"
-import { computeIndices, type Indices } from "./core/indices"
-import { buildInsole, DEFAULT_INSOLE, type InsoleMesh } from "./core/insole"
+import type { Indices } from "./core/indices"
+import { DEFAULT_INSOLE, type InsoleMesh } from "./core/insole"
+import { insoleFromPeak } from "./core/insoleFromPeak"
 import { StepTracker, copY } from "./core/live"
 import { footOutline } from "./core/outline"
 import { copTrajectory, createPressureModel, frameMaps, interpolate, peakMap, sampleGrid, SPARSE_KERNEL, type Grid, type PressureModel } from "./core/pressure"
@@ -74,11 +75,10 @@ interface Analysis {
 /** `sparse` (6-sensor kit): contact widths saturate with so few sensors, so only the arch index decides the verdict. */
 function analyzePeak(model: PressureModel, peak: Float32Array, maps: Float32Array | null, cop: Float32Array | null, sparse = false): Analysis {
   const diff = differenceMap(model.grid, peak, templateGrid)
-  const full = computeIndices(model.grid, peak)
+  const { indices: full, mesh } = insoleFromPeak(outline, model.grid, peak)
   const indices = full && sparse ? { ...full, verdict: full.archIndexClass } : full
   return {
-    model, maps, peak, diff, cop, indices,
-    mesh: buildInsole(outline, model.grid, peak, indices),
+    model, maps, peak, diff, cop, indices, mesh,
     peakMax: peak.reduce((m, v) => Math.max(m, v), 1),
     diffMax: diff.reduce((m, v) => Math.max(m, Math.abs(v)), 1e-9),
   }
@@ -459,7 +459,7 @@ el.scrub.addEventListener("input", () => {
 })
 el.download.addEventListener("click", () => {
   if (!session || !a) return
-  const mesh = buildInsole(outline, a.model.grid, a.peak, a.indices, session.side)
+  const { mesh } = insoleFromPeak(outline, a.model.grid, a.peak, session.side)
   const url = URL.createObjectURL(new Blob([toBinaryStl(mesh)], { type: "model/stl" }))
   const link = Object.assign(document.createElement("a"), { href: url, download: `insole-${session.title.toLowerCase().replace(/\W+/g, "-")}.stl` })
   link.click()
