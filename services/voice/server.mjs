@@ -19,8 +19,6 @@ export const narrationCatalog = Object.freeze({
   'onboarding.background': "Tell us a little about your feet. Pick left, right, or both. Then let us know if a clinician has ever given you a diagnosis.",
   'onboarding.pain': 'Any pain today? Slide the scale from one to ten, or tap no pain. You can also skip this one.',
   'onboarding.done': "You're all set. Tap Scan your feet to begin.",
-  add: "This is the plus tab. Choose manual measurements if you'd like to use a ruler and get calculated results, or guided photos to capture the inside, top and back of each foot. Your photos stay on your iPhone unless you choose to share an insole request.",
-  ...Object.fromEntries(['left', 'right'].map(side => [`photos.${side}`, `Let's photograph your ${side} foot. For the inside view, get down at floor level and frame your whole foot from the inner side, heel to toes. For the top view, point the camera straight down so your heel and longest toe are both in the shot. For the back view, frame your heel from behind, with the camera level and your ankle in view. A helper can make this easier. Then switch feet and repeat. Your photos stay on your phone, and scan analysis isn't connected yet.`])),
   ...Object.fromEntries(['left', 'right'].flatMap(side => Object.entries(measurements).map(([field, text]) => [`measurement.${side}.${field}`, `${side} foot. ${text} Keep the ruler straight, and try not to press into your skin. Then enter the number in the units on screen.`]))),
   'exercise.setup': "Sit comfortably with your bare foot flat on the floor and your knee right above your ankle. Gently draw the base of your big toe back toward your heel, so your arch lifts. Keep your toes long and relaxed, and don't curl them. Breathe, then let go. If anything hurts, stop.",
   'exercise.hold': 'Hold gently. Keep your toes long, and breathe.',
@@ -38,9 +36,7 @@ export const narrationCatalog = Object.freeze({
   'toeyoga.big': 'Lift your big toe. Keep the small toes down.',
   'toeyoga.small': 'Now the four small toes. Keep your big toe down.',
   'toeyoga.complete': 'Nice work. Take a moment to notice how your feet feel.',
-  premium: "Here you can explore the movement studio, with short foot and supported balance lessons. AstroFit helps you prepare an insole quote request. And Space Insole is a future concept for the gravity environment you pick. Requests stay on your phone until you choose to share them. Billing and checkout aren't available yet, and accessibility is always included.",
-  measurements: "Follow the measurement guide, and enter your results when you're ready.",
-  space: "SpaceLab is where you can explore foot shape and gravity environments. Gravity doesn't predict any change in your measured arch. From here you can explore a Space Insole design request, or read the research.",
+  'scan.tips': "Here's how to scan. Have a friend hold the phone while you stand still. Wipe the back camera lenses clean. Go barefoot, with your trousers rolled above the ankle, and stand with your weight on both feet on a plain floor that isn't shiny. Use bright, even light, but not direct sun. Then your friend walks two slow laps around your foot: first at knee height, then down near the floor. It takes about two minutes, so hold still.",
 });
 
 // xAI TTS voice and pace. `ara` is documented as warm and friendly; 1.0 is the natural pace (the API range is 0.7 to 1.5).
