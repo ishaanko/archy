@@ -31,6 +31,12 @@ final class ScanFlowModel {
     /// The user just completed a scan pass; the UI offers Another Pass / Finish.
     private(set) var isPassComplete = false
     private(set) var passNumber = 1
+    /// When the last photo was taken (or capture last resumed); drives the "keep moving" nudge.
+    private(set) var lastPhotoDate = Date.now
+
+    /// The "Before You Scan" sheet is up; the session is paused underneath it.
+    private(set) var isShowingTips = false
+    private var hasShownTips = false
 
     /// The running reconstruction, for the progress screen.
     private(set) var reconstructor: Reconstructor?
@@ -131,10 +137,32 @@ final class ScanFlowModel {
         guard let session else { return }
         passNumber += 1
         isPassComplete = false
+        lastPhotoDate = .now
         Log.capture.notice("Beginning scan pass \(self.passNumber)")
         // A foot can't be flipped, so the next pass keeps the same bounding box.
         session.beginNewScanPass()
         session.resume()
+    }
+
+    /// Shows the tips sheet once per app launch, the first time the camera is up.
+    func showTipsIfFirstScan() {
+        guard !hasShownTips else { return }
+        hasShownTips = true
+        setShowingTips(true)
+    }
+
+    /// The camera stays on screen under the sheet, so pause and resume the session by hand
+    /// (as Apple's sample does for its sheets).
+    func setShowingTips(_ shown: Bool) {
+        guard shown != isShowingTips else { return }
+        isShowingTips = shown
+        Log.capture.notice("Tips sheet \(shown ? "shown, session paused" : "closed, session resumed", privacy: .public)")
+        if shown {
+            session?.pause()
+        } else {
+            lastPhotoDate = .now
+            session?.resume()
+        }
     }
 
     func finish() {
@@ -227,6 +255,12 @@ final class ScanFlowModel {
                 self?.scanPassCompleted()
             }
         })
+        sessionTasks.append(Task { [weak self] in
+            for await count in session.numberOfShotsTakenUpdates {
+                self?.lastPhotoDate = .now
+                Log.capture.info("Photos taken: \(count)")
+            }
+        })
         sessionTasks.append(Task {
             for await feedback in session.feedbackUpdates {
                 Log.capture.info("Feedback: \(String(describing: feedback), privacy: .public)")
@@ -247,6 +281,7 @@ final class ScanFlowModel {
         case .detecting:
             phase = .detecting
         case .capturing:
+            if phase != .capturing { lastPhotoDate = .now }
             phase = .capturing
         case .finishing:
             phase = .finishing
@@ -298,6 +333,7 @@ final class ScanFlowModel {
         session = nil
         detectionFailed = false
         isPassComplete = false
+        isShowingTips = false
         passNumber = 1
     }
 }

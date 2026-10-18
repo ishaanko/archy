@@ -11,6 +11,8 @@ import os
 @MainActor
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [URL]
+    /// Called when the share sheet closes itself, so the presenter can reset its state and Share works again.
+    let onFinish: () -> Void
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
@@ -21,6 +23,7 @@ struct ShareSheet: UIViewControllerRepresentable {
             } else {
                 Log.viewer.notice("Share via \(activityName, privacy: .public) \(completed ? "completed" : "dismissed", privacy: .public)")
             }
+            onFinish()
         }
         return controller
     }
