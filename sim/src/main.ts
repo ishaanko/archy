@@ -8,7 +8,7 @@ import { StepTracker, copY } from "./core/live"
 import { footOutline } from "./core/outline"
 import { copTrajectory, createPressureModel, frameMaps, interpolate, peakMap, sampleGrid, SPARSE_KERNEL, type Grid, type PressureModel } from "./core/pressure"
 import { analyzeScan, AHI_HIGHER, AHI_LOWER, parseScanFile, type ScanResult } from "./core/scan"
-import { estimateScan, scanInsoleLayout, type ScanEstimate } from "./core/scanEstimate"
+import { estimateScan, SCAN_INSOLE, scanInsoleLayout, type ScanEstimate } from "./core/scanEstimate"
 import { toBinaryStl } from "./core/stl"
 import { synthTrial } from "./core/synth"
 import { differenceMap, templateOnGrid } from "./core/template"
@@ -366,7 +366,7 @@ function renderOwnResults({ result: r, est, weight, mode }: OwnScan): void {
   el.soleNote.hidden = r.soleObserved
   el.soleNote.textContent = "Your scan was taken standing, so we measured your arch from the side. For the best insole, scan while seated with your sole visible."
   el.support.textContent = `Extra arch support: ${Math.round(est.mesh.archHeight)} mm`
-  el.insoleMore.textContent = `Made to fit your scan, ${Math.round(r.length)} mm long. Cushioned heel cup ${DEFAULT_INSOLE.heelCupHeight} mm. Softer spots under the estimated pressure hotspots. Printed in recycled TPU. Estimated peak pressure about ${est.peakDropPercent}% lower with it.`
+  el.insoleMore.textContent = `Made to fit your scan, ${Math.round(r.length)} mm long. Deep heel cup ${SCAN_INSOLE.heelCupHeight} mm. Softer spots under the estimated pressure hotspots. Printed in recycled TPU. Estimated peak pressure about ${est.peakDropPercent}% lower with it.`
   el.estText.textContent = mode === "with" ? `Estimated peak pressure about ${est.peakDropPercent}% lower.` : `Estimated at ${weight} kg, not measured.`
 
   const row = (name: string, value: string, cls: string, rule: string) => `<tr><td>${name}</td><td>${value}</td><td>${cls}</td></tr><tr><td colspan="3" class="rule">${rule}</td></tr>`
@@ -630,7 +630,7 @@ el.download.addEventListener("click", () => {
   if (!session || !a) return
   const own = session.own
   const mesh = own
-    ? buildInsole(own.result.outline, own.est.grid, own.est.before.peak, null, session.side, undefined, scanInsoleLayout(own.result))
+    ? buildInsole(own.result.outline, own.est.grid, own.est.before.peak, null, session.side, SCAN_INSOLE, scanInsoleLayout(own.result))
     : insoleFromPeak(outline, a.model.grid, a.peak, session.side).mesh
   const url = URL.createObjectURL(new Blob([toBinaryStl(mesh)], { type: "model/stl" }))
   const link = Object.assign(document.createElement("a"), { href: url, download: own ? "archy-insole-my-scan.stl" : `insole-${session.title.toLowerCase().replace(/\W+/g, "-")}.stl` })
