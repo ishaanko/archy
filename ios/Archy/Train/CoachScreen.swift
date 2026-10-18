@@ -1,7 +1,8 @@
 import SwiftUI
 import AudioToolbox
 
-/// Where a coach session is: idle before Start, a short lead-in, then alternating hold and rest until done.
+/// Where a coach session is: idle before Start, a lead-in (the setup read aloud, then 3, 2, 1), then
+/// alternating hold and rest until done.
 enum CoachPhase: Hashable { case idle, ready, hold, rest, done }
 
 /// The words, scripts and numbers that make one practice different from another.
@@ -68,6 +69,8 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
     @State private var started: Bool
     @State private var running: Bool
     @State private var lead = 0
+    /// True from Start until the setup script has been read to the end. The lead-in waits for it.
+    @State private var briefing = false
 
     private static var leadSeconds: Int { 3 }
 
@@ -98,7 +101,7 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
     private var ringProgress: Double {
         switch phase {
         case .idle, .done: return 0
-        case .ready: return Double(Self.leadSeconds - lead + 1) / Double(Self.leadSeconds)
+        case .ready: return briefing ? 0 : Double(Self.leadSeconds - lead + 1) / Double(Self.leadSeconds)
         case .hold, .rest: return Double(session.stepSeconds - session.secondsRemaining + 1) / Double(session.stepSeconds)
         }
     }
@@ -117,8 +120,8 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: stepKey) { _, _ in phase != .done }
-        .task(id: running) {
-            guard running else { return }
+        .task(id: running && !briefing) {
+            guard running, !briefing else { return }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(1)) } catch { return }
                 guard running, scenePhase == .active else { return }
@@ -126,6 +129,8 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
                 if phase == .done { running = false; return }
             }
         }
+        // The setup finished, or read aloud was turned off, while running: start the 3-2-1.
+        .onChange(of: running && briefing && !voice.isSpeaking) { _, heard in if heard { briefing = false } }
         .onChange(of: scenePhase) { _, value in if value != .active { stop() } }
         .onChange(of: narration) { _, enabled in if enabled { prefetchCues() } else { voice.stop() } }
         .onAppear { if narration { prefetchCues() } }
@@ -226,7 +231,10 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
         if !started {
             started = true
             lead = Self.leadSeconds
+            briefing = narration
             announce()
+        } else if briefing {
+            announce() // Paused mid-setup: read it again from the top.
         }
         running = true
     }
