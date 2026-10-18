@@ -23,6 +23,7 @@ Later phase: detect flat feet from that model. **Right now we only build scannin
   `Documents/Scans/<timestamp>/Images/` and `.../Checkpoint/`.
 - **Reconstructing:** `PhotogrammetrySession` on device → `.modelFile` USDZ at
   `Documents/Scans/<timestamp>/foot.usdz`. Show progress and surface errors in the UI.
+  Then export `foot.stl` (millimeters) next to it with ModelIO; the STL is the deliverable file.
 - **Viewing:** display the USDZ (RealityView or QuickLook) with a Share button that can
   AirDrop both the USDZ and the image folder.
 - Keep the image folder after reconstruction (we may reprocess on a Mac at higher detail).
