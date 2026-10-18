@@ -1,4 +1,5 @@
 import "../theme.css"
+import "../controls.css"
 import "./sandbox.css"
 import { colormapCss, type ColormapName } from "../core/colormap"
 import { stancePose, type FootPose } from "../core/gait"
@@ -481,7 +482,7 @@ const footUrl = (arch: number) => `${import.meta.env.BASE_URL}models/foot-${arch
 let footKey = ""
 
 function staticPose(p: Pose): FootPose {
-  return { pitch: -0.1 * p.shift, pivotY: p.shift > 0 ? 185 : 0, lift: 0 }
+  return { pitch: -0.1 * p.shift, pivot: p.shift > 0 ? 1 : 0, lift: 0 }
 }
 
 function compute(now: number): void {
@@ -594,4 +595,6 @@ scene.setBoard(state.board === "esp32")
 scene.setFootVisible(state.showFoot)
 syncControls()
 scene.resize()
+const camParam = query.get("cam") // ?cam=top|side for screenshots
+if (camParam === "top" || camParam === "side") scene.setCamera(camParam)
 schedule()

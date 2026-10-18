@@ -14,8 +14,6 @@ import { FootModel } from "../view/foot"
 
 /** Accent for the selected / hinted sensor (cursor.com orange). */
 const ACCENT = "#f54e00"
-/** Scanned feet are ~250 mm long vs the 258 mm insole; shrink slightly so the foot sits inside it. */
-const FOOT_SCALE = 0.96
 const WIRE_RADIUS = 0.6
 
 const BOARD_CENTER = new Vector3(3, -52, 0)
@@ -156,6 +154,7 @@ export class SandboxScene {
     this.styleFoot()
   }
 
+  /** Pale glass: the insole is dark on both page themes, so the foot reads as light on it. */
   private styleFoot(): void {
     if (!this.foot) return
     const m = this.foot.mesh.material as MeshStandardMaterial
@@ -183,9 +182,9 @@ export class SandboxScene {
   }
 
   /** Sets the viewing direction ("3d" or straight down) and fits everything in view. */
-  setCamera(view: "3d" | "top"): void {
-    this.viewDir.copy(view === "top" ? new Vector3(0, -0.02, 1) : new Vector3(170, -40, 420)).normalize()
-    this.fit()
+  setCamera(view: "3d" | "top" | "side"): void {
+    this.viewDir.copy(view === "top" ? new Vector3(0, -0.02, 1) : view === "side" ? new Vector3(1, 0, 0.02) : new Vector3(170, -40, 420)).normalize()
+    this.fit(false)
   }
 
   /** Moves the camera back along the current viewing direction until the bounding box of insole, foot and board
@@ -326,12 +325,13 @@ export class SandboxScene {
     if (this.foot === next) return
     if (this.foot) this.scene.remove(this.foot.mesh)
     this.foot = next
+    next.seat(this.insole.heightAt)
     next.mesh.visible = this.footVisible
     this.styleFoot()
     this.scene.add(next.mesh)
     this.poseFoot(this.lastPose, this.footRoll)
   }
-  private lastPose: FootPose = { pitch: 0, pivotY: 0, lift: 0 }
+  private lastPose: FootPose = { pitch: 0, pivot: 0, lift: 0 }
 
   setFootVisible(on: boolean): void {
     this.footVisible = on
@@ -346,10 +346,9 @@ export class SandboxScene {
     this.foot.pose(pose)
     // Pronation lowers the medial (+x) side.
     const m = this.foot.mesh
-    const pivot = new Vector3(5, 0, 3)
+    const pivot = new Vector3(this.foot.centerX, 0, this.foot.seatZ)
     m.quaternion.setFromAxisAngle(new Vector3(0, 1, 0), -roll * FOOT_ROLL_RAD)
-    m.scale.setScalar(FOOT_SCALE)
-    m.position.copy(pivot).sub(pivot.clone().applyQuaternion(m.quaternion)).add(new Vector3(0, 1.5, 0))
+    m.position.copy(pivot).sub(pivot.clone().applyQuaternion(m.quaternion))
   }
 
   render(): boolean {
