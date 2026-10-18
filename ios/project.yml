@@ -1,0 +1,54 @@
+# archy iOS app. Regenerate the Xcode project after editing this file: `cd ios && xcodegen`.
+# Sources are synced folders, so adding or removing Swift files needs no regeneration.
+name: Archy
+options:
+  bundleIdPrefix: com.dubhacks
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+    DEVELOPMENT_TEAM: B37KYDJP8C
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  Archy:
+    type: application
+    platform: iOS
+    sources:
+      - path: Archy
+        type: syncedFolder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dubhacks.archy
+        PRODUCT_NAME: archy
+        INFOPLIST_FILE: Archy/Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+        ENABLE_PREVIEWS: YES
+  ArchyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+        type: syncedFolder
+    dependencies:
+      - target: Archy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dubhacks.archy.uitests
+        TEST_TARGET_NAME: Archy
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+schemes:
+  Archy:
+    build:
+      targets:
+        Archy: all
+    test:
+      targets:
+        - ArchyUITests
