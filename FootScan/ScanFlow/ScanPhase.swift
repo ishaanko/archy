@@ -6,7 +6,8 @@
 /// The one state machine that drives the UI:
 /// `ready → detecting → capturing → finishing → reconstructing → viewing`, plus `failed`.
 enum ScanPhase: Equatable {
-    /// Camera is live; the user points the dot at the foot.
+    /// Ready to scan: the user points the dot at the foot. On the first scan of a launch the tips sheet
+    /// shows first and the camera isn't running yet; otherwise it's starting or live.
     case ready
     /// Bounding box is shown; the user trims it at the ankle.
     case detecting

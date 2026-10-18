@@ -45,9 +45,12 @@ enum FootGuidance {
         }
     }
 
-    /// The most important live problem right now, or nil if capture is going fine.
+    /// The most important live problem right now, or nil if capture is going fine. Priority: tracking,
+    /// problems to fix right away, the "keep moving" nudge, then lighting hints. Low light can stay on
+    /// for a whole scan in a dim room, so it must not hide the nudge.
     static func warning(feedback: Set<ObjectCaptureSession.Feedback>,
                         tracking: ObjectCaptureSession.Tracking,
+                        isStalled: Bool,
                         tooBright: Bool) -> String? {
         switch tracking {
         case .notAvailable:
@@ -62,23 +65,28 @@ enum FootGuidance {
             break
         }
 
-        let messages: [(ObjectCaptureSession.Feedback, String)] = [
+        let urgent: [(ObjectCaptureSession.Feedback, String)] = [
             (.environmentTooDark, "Too dark. Turn on more lights."),
             (.outOfFieldOfView, "Point the camera back at the foot"),
             (.objectNotDetected, "Can't see the foot. Aim the camera at it."),
             (.movingTooFast, "Slow down"),
             (.objectTooClose, "Too close. Step back a little."),
             (.objectTooFar, "Too far. Move closer to the foot."),
-            (.environmentLowLight, "More light would help"),
         ]
-        if let message = messages.first(where: { feedback.contains($0.0) })?.1 {
+        if let message = urgent.first(where: { feedback.contains($0.0) })?.1 {
             return message
         }
-        // Lowest priority. The session has no "too bright" feedback; BrightnessMonitor estimates it.
+        if isStalled {
+            return keepMoving
+        }
+        if feedback.contains(.environmentLowLight) {
+            return "More light would help"
+        }
+        // The session has no "too bright" feedback; BrightnessMonitor estimates it.
         return tooBright ? "Too bright. Move out of direct sunlight." : nil
     }
 
-    /// Shown when no new photo has been taken for a while and nothing else explains why.
+    /// Shown when no new photo has been taken for a while.
     static let keepMoving = "Keep moving around the foot. No new photos for a few seconds."
 
     /// Shown while aiming, before the first photo. A smudged lens makes hazy photos and a blurry model.

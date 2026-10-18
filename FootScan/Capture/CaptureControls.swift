@@ -5,6 +5,7 @@
 
 import RealityKit
 import SwiftUI
+import os
 
 /// Buttons, instructions and live warnings over the camera feed, switched on the scan phase.
 @MainActor
@@ -12,8 +13,15 @@ struct CaptureControls: View {
     @Environment(ScanFlowModel.self) private var model
     let session: ObjectCaptureSession
 
+    /// The warning on screen. Updated by `updateBanner(now:)`, not straight from the session.
+    @State private var banner: String?
+    @State private var bannerShownAt = Date.distantPast
+
     /// Seconds without a new photo before nudging the helper to keep moving.
     private let stallSeconds: TimeInterval = 5
+    /// The session's feedback and tracking flip several times a second while the phone moves,
+    /// so a warning stays up at least this long to be readable.
+    private let minimumBannerSeconds: TimeInterval = 2
 
     var body: some View {
         VStack(spacing: 12) {
@@ -37,6 +45,12 @@ struct CaptureControls: View {
             }
         }
         .padding()
+        .task {
+            while !Task.isCancelled {
+                updateBanner(now: .now)
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+        }
     }
 
     // MARK: - Pieces
@@ -51,14 +65,17 @@ struct CaptureControls: View {
             Spacer()
             switch model.phase {
             case .ready, .detecting:
-                Button {
-                    model.setShowingTips(true)
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                        .font(.title2)
+                // Hidden while the session is still initializing: pausing it then can leave the camera stuck.
+                if session.state != .initializing {
+                    Button {
+                        model.showTips()
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .font(.title2)
+                    }
+                    .tint(.white)
+                    .accessibilityLabel("How to scan")
                 }
-                .tint(.white)
-                .accessibilityLabel("How to scan")
             case .capturing, .finishing:
                 Text("\(FootGuidance.lapLabel(model.passNumber)) · \(session.numberOfShotsTaken) photos")
                     .font(.subheadline.monospacedDigit().bold())
@@ -75,9 +92,9 @@ struct CaptureControls: View {
     /// The session's most important warning, a nudge when no photo has been taken for a while,
     /// or, while aiming with nothing wrong, a reminder to clean the lens.
     private var warningBanner: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            if let text = warningText(now: context.date) {
-                Label(text, systemImage: "exclamationmark.triangle.fill")
+        VStack {
+            if let banner {
+                Label(banner, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout.bold())
                     .foregroundStyle(.black)
                     .padding(.horizontal, 14)
@@ -94,22 +111,31 @@ struct CaptureControls: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: warningText(now: .now))
+        .animation(.easeInOut(duration: 0.2), value: banner)
+    }
+
+    /// Called twice a second. A new warning shows right away, but one that's already up stays for at
+    /// least `minimumBannerSeconds`. When warnings don't apply (lap card, tips, paused), it clears at once.
+    private func updateBanner(now: Date) {
+        let latest = bannersApply ? warningText(now: now) : nil
+        guard latest != banner else { return }
+        if bannersApply, banner != nil, now.timeIntervalSince(bannerShownAt) < minimumBannerSeconds { return }
+        banner = latest
+        bannerShownAt = now
+        Log.capture.info("Banner: \(latest ?? "none", privacy: .public)")
+    }
+
+    private var bannersApply: Bool {
+        [.ready, .detecting, .capturing].contains(model.phase)
+            && !session.isPaused && !model.isPassComplete && !model.isShowingTips
     }
 
     private func warningText(now: Date) -> String? {
-        guard [.ready, .detecting, .capturing].contains(model.phase),
-              !session.isPaused, !model.isPassComplete, !model.isShowingTips else { return nil }
+        let isStalled = model.phase == .capturing && now.timeIntervalSince(model.lastPhotoDate) > stallSeconds
         // "Move out of the sun" can only be acted on before capture starts; mid-lap it would ruin the scan.
         let tooBright = model.brightness.isTooBright && model.phase != .capturing
-        if let warning = FootGuidance.warning(feedback: session.feedback, tracking: session.cameraTracking,
-                                              tooBright: tooBright) {
-            return warning
-        }
-        if model.phase == .capturing, now.timeIntervalSince(model.lastPhotoDate) > stallSeconds {
-            return FootGuidance.keepMoving
-        }
-        return nil
+        return FootGuidance.warning(feedback: session.feedback, tracking: session.cameraTracking,
+                                    isStalled: isStalled, tooBright: tooBright)
     }
 
     @ViewBuilder
