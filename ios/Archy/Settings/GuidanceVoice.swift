@@ -35,11 +35,11 @@ final class GuidanceVoice {
     private var player: AVAudioPlayer?
     private var task: Task<Void, Never>?
     private var audioCache: [String: Data] = [:]
-    private(set) var status = "On-device narration available"
+    private(set) var status = "On-device voice"
 
     /// Personalized quiz/history text always stays on-device.
     func read(_ text: String) {
-        stop(); status = "On-device narration"
+        stop(); status = "On-device voice"
         speakLocally(text)
     }
     /// Only a public, fixed script ID is sent to the optional proxy. Never user text.
@@ -49,8 +49,8 @@ final class GuidanceVoice {
         guard defaults.bool(forKey: "voice.grokEnabled"),
               let url = VoiceConnection.validURL(defaults.string(forKey: "voice.proxyURL") ?? ""),
               let token = VoiceConnection.token(), token.count >= 24 else { read(fallback); return }
-        if let bytes = audioCache[script], play(bytes) { status = "Grok voice · cached instruction"; return }
-        status = "Loading Grok instruction…"
+        if let bytes = audioCache[script], play(bytes) { status = "Grok voice (cached)"; return }
+        status = "Loading Grok voice"
         task = Task {
             do {
                 var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 4)
@@ -74,10 +74,10 @@ final class GuidanceVoice {
                 try Task.checkCancellation()
                 guard UserDefaults.standard.bool(forKey: "voice.grokEnabled"), play(bytes) else { throw VoiceError.unavailable }
                 audioCache[script] = bytes
-                status = "Grok voice instruction"
+                status = "Grok voice"
             } catch {
                 guard !Task.isCancelled else { return }
-                status = "Grok unavailable · using on-device narration"
+                status = "Grok unavailable, using on-device voice"
                 speakLocally(fallback)
             }
         }
@@ -100,6 +100,7 @@ final class GuidanceVoice {
     private enum VoiceError: Error { case unavailable }
 }
 
+/// Reading, narration and optional Grok voice proxy settings. Shown as a sheet from onboarding and the tabs.
 struct GuidanceSettingsView: View {
     @AppStorage("accessibility.voiceGuidance") private var automaticNarration = false
     @AppStorage("accessibility.readingFriendly") private var readingFriendly = false
@@ -115,46 +116,97 @@ struct GuidanceSettingsView: View {
     @State private var voice = GuidanceVoice()
     @Environment(\.dismiss) private var dismiss
     private var configured: Bool { VoiceConnection.validURL(savedURL) != nil && hasSavedToken }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Accessibility") {
-                    Toggle("Read each step aloud", isOn: $automaticNarration)
-                    Toggle("Reading-friendly layout", isOn: $readingFriendly)
-                    Text("Rounded type and extra spacing. Follows your text-size settings.").font(.footnote).foregroundStyle(.secondary)
+                Section {
+                    Toggle("Read steps aloud", isOn: $automaticNarration)
+                    Toggle("Reading-friendly type", isOn: $readingFriendly)
                     Toggle("Audio cues", isOn: $audioCues)
-                    Text("Sounds mark exercise changes. All accessibility features are free.").font(.footnote).foregroundStyle(.secondary)
                 }
-                Section("Voice guidance") {
-                    Label("On-device narration available", systemImage: "speaker.wave.2.fill")
-                    Label(configured ? "Grok connection configured" : "Grok voice is not connected", systemImage: configured ? "network" : "network.slash")
-                    Toggle("Use Grok for public instructions", isOn: $grokEnabled).disabled(!configured).accessibilityIdentifier("settings.grok")
-                    Text("Enabling Grok sends instruction IDs and connection metadata to your service and xAI. No quiz answers, measurements, photos or microphone audio are sent. Personal read-aloud and fallback narration stay on-device.").font(.footnote).foregroundStyle(.secondary)
-                    Button("Try voice instructions") { voice.readScript("welcome", fallback: "Welcome to Archy. Let us take this one gentle step at a time.") }.accessibilityIdentifier("settings.testVoice")
-                    Text(voice.status).font(.caption).foregroundStyle(.secondary)
-                }
-                Section("Grok connection") {
-                    TextField("https://your-service/narrate", text: $proxyURL).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL).accessibilityIdentifier("settings.proxyURL").focused($focusedField, equals: .url)
-                    SecureField("Service access token", text: $proxyToken).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("settings.proxyToken").focused($focusedField, equals: .token)
-                    Text("Use a separate access token from your narration service. The xAI API key belongs on the server, never in this app.").font(.footnote).foregroundStyle(.secondary)
-                    Button("Save connection") {
-                        let text = proxyURL.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard VoiceConnection.validURL(text) != nil, proxyToken.count >= 24 else { error = "Enter an HTTPS /narrate URL and a service token of at least 24 characters."; return }
-                        guard VoiceConnection.saveToken(proxyToken) else { error = "The service token could not be saved in Keychain."; return }
-                        savedURL = text; hasSavedToken = true; grokEnabled = false; error = nil
+                .listRowBackground(Color.surface)
+
+                Section {
+                    Toggle("Grok voice", isOn: $grokEnabled)
+                        .disabled(!configured)
+                        .accessibilityIdentifier("settings.grok")
+                    Button {
+                        voice.readScript("welcome", fallback: "Welcome to archy. Let's take this one step at a time.")
+                    } label: {
+                        HStack {
+                            Text("Test voice")
+                            Spacer()
+                            Text(voice.status).font(.footnote).foregroundStyle(.inkTertiary)
+                        }
                     }
-                    Button("Remove connection", role: .destructive) { voice.stop(); grokEnabled = false; savedURL = ""; proxyURL = ""; proxyToken = ""; VoiceConnection.clearToken(); hasSavedToken = false; error = nil }
-                    if let error { Text(error).foregroundStyle(.red).font(.caption) }
-                    Text("Save, then enable Grok above when ready.").font(.footnote).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("settings.testVoice")
+                } header: {
+                    sectionHeader("Voice")
+                } footer: {
+                    Text("Grok sends only fixed instruction IDs to your service. Your answers, photos and audio stay on this iPhone.")
                 }
-            }.navigationTitle("Accessibility").navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) { Button("Done") { voice.stop(); dismiss() } }
-                    ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { focusedField = nil }.accessibilityIdentifier("settings.keyboardDone") }
+                .listRowBackground(Color.surface)
+
+                Section {
+                    TextField("https://your-service/narrate", text: $proxyURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                        .focused($focusedField, equals: .url)
+                        .accessibilityIdentifier("settings.proxyURL")
+                    SecureField("Access token", text: $proxyToken)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($focusedField, equals: .token)
+                        .accessibilityIdentifier("settings.proxyToken")
+                    Button("Save", action: saveConnection)
+                    Button("Remove", role: .destructive, action: removeConnection)
+                    if let error {
+                        Text(error).font(.footnote).foregroundStyle(.negative)
+                    }
+                } header: {
+                    sectionHeader("Voice proxy")
+                } footer: {
+                    Text("The token is stored in Keychain. Keep the xAI key on your server.")
                 }
-                .onAppear { proxyURL = savedURL; proxyToken = VoiceConnection.token() ?? ""; hasSavedToken = proxyToken.count >= 24 }
-                .onChange(of: grokEnabled) { _, _ in voice.stop() }
-                .onDisappear { voice.stop() }
+                .listRowBackground(Color.surface)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.bg)
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { voice.stop(); dismiss() } }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focusedField = nil }.accessibilityIdentifier("settings.keyboardDone")
+                }
+            }
+            .onAppear { proxyURL = savedURL; proxyToken = VoiceConnection.token() ?? ""; hasSavedToken = proxyToken.count >= 24 }
+            .onChange(of: grokEnabled) { _, _ in voice.stop() }
+            .onDisappear { voice.stop() }
         }
+        .archyScreen()
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title).font(.footnote.weight(.medium)).textCase(nil).foregroundStyle(.inkSecondary)
+    }
+
+    private func saveConnection() {
+        let text = proxyURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard VoiceConnection.validURL(text) != nil, proxyToken.count >= 24 else {
+            error = "Needs an HTTPS /narrate URL and a token of 24+ characters."
+            return
+        }
+        guard VoiceConnection.saveToken(proxyToken) else { error = "Couldn't save the token to Keychain."; return }
+        savedURL = text; hasSavedToken = true; grokEnabled = false; error = nil
+    }
+
+    private func removeConnection() {
+        voice.stop()
+        grokEnabled = false; savedURL = ""; proxyURL = ""; proxyToken = ""
+        VoiceConnection.clearToken(); hasSavedToken = false; error = nil
     }
 }

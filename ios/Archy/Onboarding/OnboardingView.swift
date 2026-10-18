@@ -1,269 +1,358 @@
 import SwiftUI
 
-private enum QuizStep: Int, CaseIterable {
-    case goal, background, comfort, ready
-    var title: String {
+private enum Step: Int {
+    case welcome, goal, background, pain, done
+
+    var heading: String {
         switch self {
-        case .goal: "What would you like to explore?"
-        case .background: "A little about your feet."
-        case .comfort: "How do your feet feel today?"
-        case .ready: "Your next step starts here."
+        case .welcome: "Check your arch. Print your insole."
+        case .goal: "What brings you here?"
+        case .background: "About your feet"
+        case .pain: "Any pain today?"
+        case .done: "You're set"
         }
     }
-    var detail: String {
-        switch self {
-        case .goal: "A few quick questions will help shape your first visit."
-        case .background: "Only share what you’re comfortable with."
-        case .comfort: "This records your experience. It doesn’t assess or diagnose a condition."
-        case .ready: "Choose photos or manual measurements in the + tab. You’re in control of what you add."
-        }
-    }
+
+    /// How many progress segments are filled on this step.
+    var progress: Int { min(max(rawValue, 0), 3) }
 }
 
+/// First run: welcome, three one-tap questions, then a finish moment. Also the Home "edit answers" sheet
+/// (`onCancel != nil`), which skips the welcome and finish and saves right after the last question.
+/// Debug routes (need `-ArchyFreshInstall YES`): onboarding.welcome|goal|background|pain|done, settings.
 struct OnboardingView: View {
     var initial = OnboardingAnswers()
     var onCancel: (() -> Void)? = nil
     let onComplete: (OnboardingAnswers) -> Void
-    @State private var answers = OnboardingAnswers()
-    @State private var step: QuizStep = .goal
-    @State private var painLevel = 4.0
+
+    @State private var answers: OnboardingAnswers
+    @State private var step: Step
+    @State private var painDraft = 5
+    @State private var locked = false
+    @State private var advanceTask: Task<Void, Never>?
+    @State private var showsSettings = false
     @State private var voice = GuidanceVoice()
-    @State private var showsAccessibility = false
-    @State private var initialized = false
+    @State private var routed = false
     @AppStorage("accessibility.voiceGuidance") private var automaticNarration = false
-    @AppStorage("accessibility.readingFriendly") private var readingFriendly = false
-    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(AppRouter.self) private var router
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var numberHeight = 190.0
+
+    init(initial: OnboardingAnswers = OnboardingAnswers(), onCancel: (() -> Void)? = nil, onComplete: @escaping (OnboardingAnswers) -> Void) {
+        self.initial = initial
+        self.onCancel = onCancel
+        self.onComplete = onComplete
+        _answers = State(initialValue: initial)
+        _step = State(initialValue: onCancel == nil ? .welcome : .goal)
+        if case .rating(let score) = initial.pain { _painDraft = State(initialValue: score) }
+    }
+
+    private var isEditing: Bool { onCancel != nil }
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        questionHeading.id("questionTop")
-                        questionContent
-                        if step != .ready {
-                            Label("Your answers stay on this iPhone", systemImage: "lock.shield")
-                                .font(.footnote).foregroundStyle(.secondary).padding(.top, 4)
-                        }
-                    }.padding(.horizontal, 24).padding(.bottom, 28)
-                }.onChange(of: step) { _, _ in
-                    proxy.scrollTo("questionTop", anchor: .top)
-                    if automaticNarration { voice.read(spokenPrompt) } else { voice.stop() }
-                    UIAccessibility.post(notification: .screenChanged, argument: step.title)
-                }
+            ZStack {
+                content.id(step).transition(.step)
             }
-            footer
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Color.journeyBackground)
-        .foregroundStyle(Color.archyForeground)
-        .tint(.journeyAccent)
-        .fontDesign(readingFriendly ? .rounded : .default)
-        .lineSpacing(readingFriendly ? 6 : 2)
-        .sheet(isPresented: $showsAccessibility) { GuidanceSettingsView().presentationDetents([.medium, .large]) }
+        .animation(Motion.smooth.reduced(reduceMotion), value: step)
+        .archyScreen()
+        .sheet(isPresented: $showsSettings) { GuidanceSettingsView().presentationDetents([.medium, .large]) }
+        .sensoryFeedback(.selection, trigger: answers)
+        .sensoryFeedback(.success, trigger: step) { _, new in new == .done }
+        .onChange(of: step) { _, new in
+            if automaticNarration { voice.read(spoken(for: new)) } else { voice.stop() }
+            UIAccessibility.post(notification: .screenChanged, argument: new.heading)
+        }
         .onAppear {
-            if !initialized {
-                answers = initial
-                if case .rating(let score) = initial.pain { painLevel = Double(score) }
-                initialized = true
-            }
-            if automaticNarration { voice.read(spokenPrompt) }
+            applyDebugRoute()
+            if automaticNarration { voice.read(spoken(for: step)) }
         }
-        .onDisappear { voice.stop() }
-        .sensoryFeedback(.selection, trigger: step)
+        .onDisappear { advanceTask?.cancel(); voice.stop() }
     }
+
+    // MARK: Header
 
     private var header: some View {
-        VStack(spacing: 22) {
-            HStack {
-                ArchyWordmark()
-                Spacer()
-                Menu {
-                    Button("Read this step", systemImage: "speaker.wave.2") { voice.read(spokenPrompt) }
-                    Button("Stop reading", systemImage: "stop.circle") { voice.stop() }
-                } label: { Image(systemName: "speaker.wave.2").frame(width: 44, height: 44) }
-                .accessibilityLabel("Read-aloud controls")
-                Button { showsAccessibility = true } label: { Image(systemName: "accessibility").frame(width: 44, height: 44) }.accessibilityLabel("Accessibility settings")
-                if let onCancel { Button("Close", action: onCancel) }
+        HStack(spacing: Space.sm) {
+            leadingButton.frame(width: 72, alignment: .leading)
+            SegmentedProgress(filled: step.progress)
+                .opacity(step == .welcome ? 0 : 1)
+            Menu {
+                Button("Read this step", systemImage: "speaker.wave.2") { voice.read(spoken(for: step)) }
+                Button("Stop reading", systemImage: "stop.circle") { voice.stop() }
+                Button("Accessibility settings", systemImage: "accessibility") { showsSettings = true }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.title3)
+                    .foregroundStyle(.inkSecondary)
+                    .frame(width: 72, height: 44, alignment: .trailing)
+                    .contentShape(Rectangle())
             }
-            HStack(spacing: 8) {
-                ForEach(QuizStep.allCases, id: \.rawValue) { item in
-                    Capsule().fill(item.rawValue <= step.rawValue ? Color.journeyAccent : Color.journeyAccent.opacity(0.13)).frame(height: 5)
-                }
-            }.accessibilityElement(children: .ignore).accessibilityLabel("Question \(step.rawValue + 1) of 4")
-        }.padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
-            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .accessibilityLabel("Read aloud and accessibility")
+            .accessibilityIdentifier("onboarding.menu")
+        }
+        .padding(.horizontal, Space.page)
+        .frame(minHeight: 44)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
-    private var questionHeading: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(step == .ready ? "READY WHEN YOU ARE" : "GETTING TO KNOW YOU · \(step.rawValue + 1) OF 3")
-                .font(.caption.weight(.semibold)).tracking(1.2).foregroundStyle(Color.journeyAccent)
-                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-            Text(step.title).font(.title.weight(.medium)).tracking(-0.7).fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-            Text(step.detail).font(.body).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    @ViewBuilder private var leadingButton: some View {
+        if step == .goal, let onCancel {
+            Button("Close", action: onCancel).buttonStyle(.archyGhost)
+        } else if step != .welcome {
+            Button("Back", action: back).buttonStyle(.archyGhost).accessibilityIdentifier("quiz.back")
         }
     }
 
-    @ViewBuilder private var questionContent: some View {
+    // MARK: Steps
+
+    @ViewBuilder private var content: some View {
         switch step {
-        case .goal:
-            VStack(spacing: 12) {
-                ForEach(FootGoal.allCases) { goal in
-                    QuizChoice(title: goal.title, detail: goal.detail, icon: goal.icon, selected: answers.goal == goal) { answers.goal = goal }
-                        .accessibilityIdentifier("quiz.goal.\(goal.rawValue)")
+        case .welcome: welcome
+        case .goal: goal
+        case .background: background
+        case .pain: pain
+        case .done: done
+        }
+    }
+
+    private var welcome: some View {
+        VStack(alignment: .leading, spacing: Space.xl) {
+            Spacer()
+            WelcomeLogo()
+            Spacer()
+            Text("Check your arch.\nPrint your insole.")
+                .display(.hero)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+                .reveal(9)
+            VStack(spacing: Space.md) {
+                Button("Get started") { forward() }
+                    .buttonStyle(.archyPrimary)
+                    .accessibilityIdentifier("onboarding.start")
+                Text("Private on this iPhone. No account.")
+                    .font(.footnote)
+                    .foregroundStyle(.inkTertiary)
+                    .frame(maxWidth: .infinity)
+            }
+            .reveal(11)
+        }
+        .padding(.horizontal, Space.page)
+        .padding(.bottom, Space.lg)
+    }
+
+    private var goal: some View {
+        question(step.heading, advancing: answers.goal != nil) {
+            VStack(spacing: Space.md) {
+                ForEach(FootGoal.allCases) { option in
+                    ChoiceRow(title: option.title, selected: answers.goal == option, dimmed: locked && answers.goal != option, minHeight: 48) {
+                        pick { answers.goal = option }
+                    }
+                    .accessibilityIdentifier("quiz.goal.\(option.rawValue)")
                 }
             }
-        case .background:
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Has a clinician diagnosed a foot condition?").font(.headline)
-                VStack(spacing: 10) {
-                    ForEach(ReportedDiagnosis.allCases) { diagnosis in
-                        QuizChoice(title: diagnosis.title, detail: diagnosis.detail, icon: nil, selected: answers.diagnosis == diagnosis) { answers.diagnosis = diagnosis }
-                            .accessibilityIdentifier("quiz.diagnosis.\(diagnosis.rawValue)")
+        }
+    }
+
+    private var background: some View {
+        question(step.heading, advancing: answers.diagnosis != nil) {
+            VStack(alignment: .leading, spacing: Space.xl) {
+                ArchySegmented(selection: $answers.focus, options: FootFocus.allCases, label: \.title)
+                VStack(alignment: .leading, spacing: Space.md) {
+                    Text("Any diagnosis from a clinician?")
+                        .font(.subheadline)
+                        .foregroundStyle(.inkSecondary)
+                    ForEach(ReportedDiagnosis.allCases) { option in
+                        ChoiceRow(title: option.title, selected: answers.diagnosis == option, dimmed: locked && answers.diagnosis != option) {
+                            pick { answers.diagnosis = option }
+                        }
+                        .accessibilityIdentifier("quiz.diagnosis.\(option.rawValue)")
                     }
                 }
-                Text("Which foot would you like to focus on?").font(.headline)
-                if typeSize.isAccessibilitySize {
-                    Picker("Foot focus", selection: $answers.focus) {
-                        ForEach(FootFocus.allCases) { Text($0.title).tag($0) }
-                    }.pickerStyle(.menu)
-                } else {
-                    Picker("Foot focus", selection: $answers.focus) {
-                        ForEach(FootFocus.allCases) { Text($0.title).tag($0) }
-                    }.pickerStyle(.segmented)
-                }
             }
-        case .comfort:
-            comfortQuestion
-        case .ready:
-            readySummary
         }
     }
 
-    private var comfortQuestion: some View {
-        VStack(spacing: 12) {
-            QuizChoice(title: "No pain today", detail: "Record a pain level of 0.", icon: "face.smiling", selected: answers.pain == .noPain) { answers.pain = .noPain }.accessibilityIdentifier("quiz.pain.none")
-            QuizChoice(title: "I’d like to record a pain level", detail: "Choose a number from 1 to 10.", icon: "slider.horizontal.3", selected: ratesPain) { answers.pain = .rating(Int(painLevel)) }.accessibilityIdentifier("quiz.pain.rating")
-            if ratesPain {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("\(Int(painLevel))").font(.system(.largeTitle, design: .rounded, weight: .semibold)).monospacedDigit()
-                        Text("/ 10").font(.title3).foregroundStyle(.secondary)
+    private var pain: some View {
+        question(step.heading, advancing: false) {
+            VStack(alignment: .leading, spacing: Space.xl) {
+                MetricText(value: Double(shownPain))
+                    .scaleEffect(reduceMotion ? 1 : 3, anchor: .leading)
+                    .frame(height: numberHeight, alignment: .leading)
+                    .opacity(painIsRated || answers.pain == .noPain ? 1 : 0.25)
+                    .animation(Motion.snappy.reduced(reduceMotion), value: painIsRated)
+                    .accessibilityHidden(true)
+                VStack(spacing: Space.sm) {
+                    PainScale(level: ratedPain ?? painDraft, isSet: painIsRated) { value in
+                        painDraft = value
+                        answers.pain = .rating(value)
+                    }
+                    HStack {
+                        Text("Mild")
                         Spacer()
-                        Text("Your reported level").font(.caption).foregroundStyle(.secondary)
+                        Text("Severe")
                     }
-                    Slider(value: $painLevel, in: 1...10, step: 1).accessibilityLabel("Pain level").accessibilityValue("\(Int(painLevel)) out of 10")
-                    HStack { Text("1 · Very mild"); Spacer(); Text("10 · Worst imaginable") }.font(.caption).foregroundStyle(.secondary)
-                }.padding(20).background(Color.archyCard, in: RoundedRectangle(cornerRadius: 12))
-                    .onChange(of: painLevel) { _, value in answers.pain = .rating(Int(value)) }
-            }
-            QuizChoice(title: "Prefer not to say", detail: "Continue without a pain score.", icon: nil, selected: answers.pain == .preferNotToSay) { answers.pain = .preferNotToSay }.accessibilityIdentifier("quiz.pain.skip")
-        }
-    }
-
-    private var readySummary: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 20) {
-                Label("Your starting point", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(Color.journeyAccent)
-                summaryRow("Goal", answers.goal?.title ?? "Not selected")
-                summaryRow("Focus", answers.focus.title)
-                summaryRow("Previous diagnosis", answers.diagnosis?.title ?? "Not shared")
-                summaryRow("Pain today", answers.pain?.summary ?? "Not shared")
-            }.padding(22).background(Color.archyCard, in: RoundedRectangle(cornerRadius: 12))
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "plus.circle.fill").font(.title).foregroundStyle(Color.journeyAccent)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("First, add your foundation").font(.headline)
-                    Text("Add photos or measurements, then explore SpaceLab.").font(.callout).foregroundStyle(.secondary)
+                    .font(.footnote)
+                    .foregroundStyle(.inkTertiary)
+                    .accessibilityHidden(true)
+                }
+                HStack(spacing: Space.md) {
+                    ChoiceRow(title: "No pain", selected: answers.pain == .noPain, dimmed: locked && answers.pain != .noPain, font: .body.weight(.medium)) {
+                        pick { answers.pain = .noPain }
+                    }
+                    .accessibilityIdentifier("quiz.pain.none")
+                    ChoiceRow(title: "Prefer not to say", selected: answers.pain == .preferNotToSay, dimmed: locked && answers.pain != .preferNotToSay, font: .body.weight(.medium)) {
+                        pick { answers.pain = .preferNotToSay }
+                    }
+                    .accessibilityIdentifier("quiz.pain.skip")
                 }
             }
-            Text("Personalized guidance, not a medical diagnosis.").font(.footnote).foregroundStyle(.secondary)
+        } footer: {
+            if painIsRated && !locked {
+                Button(isEditing ? "Save" : "Continue") { forward() }
+                    .buttonStyle(.archyPrimary)
+                    .accessibilityIdentifier("quiz.next")
+                    .transition(.step)
+            }
+        }
+        .animation(Motion.smooth.reduced(reduceMotion), value: painIsRated)
+    }
+
+    private var done: some View {
+        VStack(alignment: .leading, spacing: Space.xl) {
+            Spacer()
+            DrawnCheck()
+            Text("You're set")
+                .display(.hero)
+                .accessibilityAddTraits(.isHeader)
+                .reveal(6)
+            Spacer()
+            Button("Scan your feet") { onComplete(answers) }
+                .buttonStyle(.archyPrimary)
+                .accessibilityIdentifier("onboarding.finish")
+                .reveal(8)
+        }
+        .padding(.horizontal, Space.page)
+        .padding(.bottom, Space.lg)
+    }
+
+    /// Shared question layout: heading on top, answers pinned low, and a bottom slot that holds
+    /// a quiet "Next" when this step already has an answer (after Back, or when editing).
+    private func question<Answers: View, Footer: View>(
+        _ title: String,
+        advancing hasAnswer: Bool,
+        @ViewBuilder answersView: () -> Answers,
+        @ViewBuilder footer: () -> Footer = { EmptyView() }
+    ) -> some View {
+        let stack = VStack(alignment: .leading, spacing: Space.xl) {
+            Text(title)
+                .display(.hero)
+                .padding(.top, Space.lg)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: Space.xl)
+            answersView()
+        }
+        return VStack(spacing: Space.md) {
+            ViewThatFits(in: .vertical) {
+                stack
+                ScrollView { stack }.scrollBounceBehavior(.basedOnSize)
+            }
+            ZStack(alignment: .trailing) {
+                footer()
+                if hasAnswer && !locked {
+                    Button("Next") { forward() }
+                        .buttonStyle(.archyGhost)
+                        .accessibilityIdentifier("quiz.next")
+                        .transition(.opacity)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 54, alignment: .trailing)
+        }
+        .padding(.horizontal, Space.page)
+        .padding(.bottom, Space.lg)
+    }
+
+    // MARK: Flow
+
+    private var ratedPain: Int? {
+        if case .rating(let value) = answers.pain { return value }
+        return nil
+    }
+
+    private var painIsRated: Bool { ratedPain != nil }
+
+    /// The number on the pain step: the rating, 0 for no pain, otherwise the untouched draft.
+    private var shownPain: Int {
+        switch answers.pain {
+        case .rating(let value): value
+        case .noPain: 0
+        case .preferNotToSay, nil: painDraft
         }
     }
 
-    private func summaryRow(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.body.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+    /// Records a single-choice answer with a playful pop, holds a beat so the choice reads, then moves on.
+    private func pick(_ apply: () -> Void) {
+        guard !locked else { return }
+        withAnimation(Motion.playful.reduced(reduceMotion)) {
+            apply()
+            locked = true
+        }
+        advanceTask?.cancel()
+        advanceTask = Task {
+            try? await Task.sleep(for: .milliseconds(380))
+            guard !Task.isCancelled else { return }
+            forward()
         }
     }
 
-    private var footer: some View {
-        VStack(spacing: 12) {
-            Button(action: advance) {
-                Group {
-                    if typeSize.isAccessibilitySize {
-                        Text(step == .ready ? "Open +" : step == .comfort ? "Review" : "Next")
-                            .frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        HStack { Text(step == .ready ? "Open the + tab" : step == .comfort ? "Review my starting point" : "Continue"); Spacer(); Image(systemName: step == .ready ? "plus" : "arrow.right") }
-                    }
-                }.font(.headline).padding(.horizontal, 20).frame(minHeight: 54)
-            }.buttonStyle(ArchyPrimaryButtonStyle()).buttonBorderShape(.roundedRectangle(radius: 17)).disabled(!canContinue).accessibilityIdentifier("quiz.next").id(step)
-            if step != .goal {
-                Button("Back") { if let previous = QuizStep(rawValue: step.rawValue - 1) { step = previous } }
-                    .font(.callout.weight(.semibold)).frame(minHeight: 36).accessibilityIdentifier("quiz.back")
-            } else if !typeSize.isAccessibilitySize { Text("Private on this iPhone · No account needed").font(.caption).foregroundStyle(.secondary) }
-        }.padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 10).background(.regularMaterial)
-            .transaction { transaction in transaction.animation = nil; transaction.disablesAnimations = true }
-    }
-
-    private var ratesPain: Bool {
-        guard let pain = answers.pain else { return false }
-        if case .rating = pain { return true }
-        return false
-    }
-    private var canContinue: Bool {
-        switch step {
-        case .goal: answers.goal != nil
-        case .background: answers.diagnosis != nil
-        case .comfort: answers.pain?.isValid == true
-        case .ready: answers.isComplete
-        }
-    }
-    private var spokenPrompt: String {
-        let options: String = switch step {
-        case .goal: FootGoal.allCases.map { $0.title + ". " + $0.detail }.joined(separator: ". ")
-        case .background: "Has a clinician diagnosed a foot condition? " + ReportedDiagnosis.allCases.map(\.title).joined(separator: ". ")
-        case .comfort: "Choose no pain, a pain rating from one to ten, or prefer not to say."
-        case .ready: answers.summaryText + ". Select Open the plus tab to add photos or measurements."
-        }
-        return step.title + ". " + step.detail + ". " + options
-    }
-    private func advance() {
-        guard canContinue else { return }
-        if step == .ready { onComplete(answers) }
-        else if let next = QuizStep(rawValue: step.rawValue + 1) {
+    private func forward() {
+        advanceTask?.cancel()
+        locked = false
+        if step == .pain && isEditing {
+            onComplete(answers)
+        } else if let next = Step(rawValue: step.rawValue + 1) {
             step = next
         }
     }
-}
 
-private struct QuizChoice: View {
-    let title: String
-    let detail: String
-    let icon: String?
-    let selected: Bool
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .center, spacing: 14) {
-                if let icon {
-                    Image(systemName: icon).font(.title2).dynamicTypeSize(...DynamicTypeSize.xxxLarge).foregroundStyle(Color.journeyAccent)
-                        .frame(width: 44, height: 48).background(Color.journeyAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12)).accessibilityHidden(true)
-                }
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(title).font(.headline).foregroundStyle(Color.archyForeground).fixedSize(horizontal: false, vertical: true)
-                    if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(Color.journeySecondary) }
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3).dynamicTypeSize(...DynamicTypeSize.xxxLarge).foregroundStyle(selected ? Color.journeyAccent : Color.secondary.opacity(0.4)).accessibilityHidden(true)
-            }.padding(16).frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-                .background(selected ? Color.journeyAccent.opacity(0.055) : Color.archyCard, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected ? Color.journeyAccent : Color.archyBorder, lineWidth: selected ? 1.5 : 1))
-                .contentShape(RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
+    private func back() {
+        advanceTask?.cancel()
+        locked = false
+        if let previous = Step(rawValue: step.rawValue - 1) { step = previous }
+    }
+
+    private func spoken(for step: Step) -> String {
+        switch step {
+        case .welcome: "Check your arch. Print your insole. Select Get started."
+        case .goal: step.heading + " " + FootGoal.allCases.map(\.title).joined(separator: ". ")
+        case .background: step.heading + ". Choose both feet, left or right. Then pick any diagnosis: " + ReportedDiagnosis.allCases.map(\.title).joined(separator: ". ")
+        case .pain: step.heading + " Adjust the scale from 1 to 10, or choose no pain, or prefer not to say."
+        case .done: "You're set. Select Scan your feet."
+        }
+    }
+
+    private func applyDebugRoute() {
+        #if DEBUG
+        guard !routed, !isEditing, let route = router.debugRoute else { return }
+        routed = true
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            switch route {
+            case "onboarding.goal": step = .goal
+            case "onboarding.background": step = .background
+            case "onboarding.pain": step = .pain
+            case "onboarding.done":
+                if !answers.isComplete { answers = OnboardingAnswers(goal: .understandArch, diagnosis: ReportedDiagnosis.none, pain: .rating(4)) }
+                step = .done
+            case "settings": showsSettings = true
+            default: break
+            }
+        }
+        #endif
     }
 }
-
