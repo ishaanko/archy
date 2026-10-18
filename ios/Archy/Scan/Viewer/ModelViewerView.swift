@@ -7,11 +7,11 @@ enum ViewerSource {
     case scan(ScanFolder, size: SIMD3<Float>?, arch: FootArchAnalysis?)
     case sample(SampleScan)
 
-    /// The model as an entity in meters: the reconstructed USDZ, or the sample's mesh.
+    /// The model as a faded clay entity in meters, from the reconstructed USDZ or the sample's mesh.
     func loadEntity() async throws -> Entity {
         switch self {
-        case .scan(let folder, _, _): try await Entity(contentsOf: folder.modelURL)
-        case .sample(let sample): try sample.makeEntity()
+        case .scan(let folder, _, _): try FootModel.entity(for: FootMesh.load(from: folder.modelURL))
+        case .sample(let sample): try FootModel.entity(for: sample.mesh)
         }
     }
 
