@@ -95,15 +95,15 @@ struct OnboardingView: View {
             .accessibilityIdentifier("onboarding.menu")
         }
         .padding(.horizontal, Space.page)
-        .frame(minHeight: 44)
+        .frame(height: 44) // fixed so the menu sits in the same spot on every step
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     @ViewBuilder private var leadingButton: some View {
         if step == .goal, let onCancel {
-            Button("Close", action: onCancel).buttonStyle(.archyGhost)
+            Button("Close", action: onCancel).buttonStyle(.archyGhost).lineLimit(1)
         } else if step != .welcome {
-            Button("Back", action: back).buttonStyle(.archyGhost).accessibilityIdentifier("quiz.back")
+            Button("Back", action: back).buttonStyle(.archyGhost).lineLimit(1).accessibilityIdentifier("quiz.back")
         }
     }
 
