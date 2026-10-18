@@ -11,8 +11,10 @@ enum DisplayStyle {
     case title
     /// Section headings and card titles.
     case headline
-    /// Large live numbers (AHI, countdowns, percentages).
+    /// Large live numbers (AHI, percentages).
     case metric
+    /// One focal number filling the screen: countdowns, the pain scale.
+    case giant
 
     var size: CGFloat {
         switch self {
@@ -20,12 +22,13 @@ enum DisplayStyle {
         case .title: 32
         case .headline: 22
         case .metric: 56
+        case .giant: 128
         }
     }
 
     var relativeTo: Font.TextStyle {
         switch self {
-        case .hero, .metric: .largeTitle
+        case .hero, .metric, .giant: .largeTitle
         case .title: .title
         case .headline: .title3
         }
@@ -38,6 +41,7 @@ enum DisplayStyle {
         case .title: -0.9
         case .headline: -0.4
         case .metric: -1.8
+        case .giant: -4
         }
     }
 }
