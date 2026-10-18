@@ -1,6 +1,6 @@
 //
 //  FootGuidance.swift
-//  FootScan
+//  archy
 //
 
 import RealityKit
@@ -17,32 +17,31 @@ enum FootGuidance {
         lap <= plannedLaps ? "Lap \(lap) of \(plannedLaps)" : "Lap \(lap)"
     }
 
+    /// One short line for the bottom of the camera.
     static func instruction(for phase: ScanPhase, lap: Int, detectionFailed: Bool) -> String {
         switch phase {
         case .ready:
             detectionFailed
-                ? "Can't find the foot. Step a little closer, keep the whole foot in view, and put the dot on top of it."
-                : "Hold the phone about 50 cm from the foot, tilted down. Put the dot on top of the foot, then tap Continue."
+                ? "Can't find the foot. Step closer and put the dot on it."
+                : "Hold the phone 50 cm from your foot, tilted down. Put the dot on it."
         case .detecting:
-            "Check the box covers the whole foot, toes to heel. Drag its top edge down to the ankle bone, then tap Start Capture."
+            "Cover the whole foot, toes to heel. Drag the top of the box down to the ankle bone."
         case .capturing:
             lap == 1
-                ? "Walk slowly all the way around, phone at knee height. The ring fills in as you go; gaps show where you still need to go."
-                : "Go around again with the phone low, near the floor. Take extra time on the inner side of the arch."
+                ? "Walk slowly around the foot, phone at knee height."
+                : "Go around again, phone near the floor. Take your time on the inner arch."
         case .finishing:
-            "Saving photos…"
+            "Saving your photos"
         default:
             ""
         }
     }
 
     /// Title and body of the card shown when a lap's ring is complete.
-    static func lapCompleteText(lap: Int, photos: Int) -> (title: String, body: String) {
-        if lap < plannedLaps {
-            ("Lap \(lap) done", "\(photos) photos so far. Now go around once more with the phone low, near the floor, aimed at the inner arch.")
-        } else {
-            ("All done!", "\(photos) photos. Tap Finish to build the 3D model.")
-        }
+    static func lapCompleteText(lap: Int) -> (title: String, body: String) {
+        lap < plannedLaps
+            ? ("Lap \(lap) done", "Now once more with the phone near the floor, aimed at the inner arch.")
+            : ("Both laps done", "Finish to build your 3D model.")
     }
 
     /// The most important live problem right now, or nil if capture is going fine. Priority: tracking,
@@ -54,7 +53,7 @@ enum FootGuidance {
                         tooBright: Bool) -> String? {
         switch tracking {
         case .notAvailable:
-            return "Tracking lost. Move slowly back toward the foot."
+            return "Tracking lost. Move slowly back to the foot."
         case .limited(let reason):
             switch reason {
             case .excessiveMotion: return "Slow down"
@@ -87,8 +86,8 @@ enum FootGuidance {
     }
 
     /// Shown when no new photo has been taken for a while.
-    static let keepMoving = "Keep moving around the foot. No new photos for a few seconds."
+    static let keepMoving = "Keep moving around the foot"
 
     /// Shown while aiming, before the first photo. A smudged lens makes hazy photos and a blurry model.
-    static let cleanLens = "Wipe the camera lens first for sharper photos"
+    static let cleanLens = "Wipe the camera lens for sharper photos"
 }

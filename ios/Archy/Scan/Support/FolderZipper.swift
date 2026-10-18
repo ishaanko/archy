@@ -1,6 +1,6 @@
 //
 //  FolderZipper.swift
-//  FootScan
+//  archy
 //
 
 import Foundation

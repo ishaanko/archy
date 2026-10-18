@@ -1,6 +1,6 @@
 //
 //  ScanFolder.swift
-//  FootScan
+//  archy
 //
 
 import Foundation
@@ -81,9 +81,9 @@ struct ScanFolder {
     }
 
     static func storageMessage(requiredBytes: Int64 = requiredFreeBytes) -> String {
-        let free = freeBytes().map { " and this iPhone has \(formatted($0))" } ?? ""
-        return "Not enough free space. FootScan needs about \(formatted(requiredBytes)) free\(free). "
-            + "Delete old scans in Files › On My iPhone › FootScan › Scans, or free up space in Settings › General › iPhone Storage."
+        let free = freeBytes().map { ", this iPhone has \(formatted($0))" } ?? ""
+        return "Not enough space. archy needs about \(formatted(requiredBytes)) free\(free). "
+            + "Delete old scans in Files › archy › Scans, or free up space in Settings."
     }
 
     nonisolated static func formatted(_ bytes: Int64) -> String {

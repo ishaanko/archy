@@ -1,6 +1,6 @@
 //
 //  ScanFlowModel.swift
-//  FootScan
+//  archy
 //
 
 import Foundation
@@ -34,10 +34,8 @@ final class ScanFlowModel {
     /// When the last photo was taken (or capture last resumed); drives the "keep moving" nudge.
     private(set) var lastPhotoDate = Date.now
 
-    /// The "Before You Scan" sheet is up. On the first scan of a launch it shows before the camera exists;
-    /// from the "?" button it shows over the paused camera.
+    /// The "How to scan" sheet is up over the paused camera (the "?" button).
     private(set) var isShowingTips = false
-    private var hasShownTips = false
 
     /// The running reconstruction, for the progress screen.
     private(set) var reconstructor: Reconstructor?
@@ -82,9 +80,8 @@ final class ScanFlowModel {
 
     // MARK: - Actions
 
-    /// Starts a new scan. It checks free space first, then either shows the tips (first scan of
-    /// this launch; the camera starts in `tipsDismissed()`) or starts the camera right away.
-    /// Does nothing while a scan or the tips are already under way, so repeated calls are harmless.
+    /// Starts a new scan: checks free space, then starts the camera. The intro screen has already
+    /// covered the tips. Does nothing while a scan is under way, so repeated calls are harmless.
     func begin() {
         guard isSupported else {
             Log.capture.error("Not starting a session: this device doesn't support Object Capture")
@@ -92,7 +89,7 @@ final class ScanFlowModel {
         }
         guard session == nil, phase == .ready, !isShowingTips else { return }
 
-        // Before the tips and before creating a folder: the session fails right away below 4 GB free.
+        // Before creating a folder: the session fails right away below 4 GB free.
         let freeBytes = ScanFolder.freeBytes()
         Log.files.notice("Free space: \(freeBytes.map(ScanFolder.formatted) ?? "unknown", privacy: .public)")
         if let freeBytes, freeBytes < ScanFolder.requiredFreeBytes {
@@ -100,12 +97,6 @@ final class ScanFlowModel {
             return
         }
 
-        if !hasShownTips {
-            hasShownTips = true
-            isShowingTips = true
-            Log.capture.notice("Tips sheet shown; camera starts after it closes")
-            return
-        }
         startCaptureSession()
     }
 
@@ -172,7 +163,7 @@ final class ScanFlowModel {
     }
 
     /// The "?" button. The camera stays on screen under the sheet, so the session is paused by hand
-    /// (as Apple's sample does for its sheets). CaptureControls only offers "?" once the session is
+    /// (as Apple's sample does for its sheets). The capture overlay only offers "?" once the session is
     /// past `.initializing`: pausing a session that hasn't finished starting can leave the camera stuck.
     func showTips() {
         guard !isShowingTips else { return }
@@ -186,18 +177,13 @@ final class ScanFlowModel {
         isShowingTips = presented
     }
 
-    /// Runs once the tips sheet has finished closing, and from the "Start Camera" fallback button.
-    /// Resumes the paused camera, or starts it after the first-launch sheet.
+    /// Runs once the tips sheet has finished closing. Resumes the paused camera.
     func tipsDismissed() {
         isShowingTips = false
-        if let session {
-            lastPhotoDate = .now
-            session.resume()
-            Log.capture.notice("Tips sheet closed, session resumed")
-        } else {
-            Log.capture.notice("Tips sheet closed, starting the camera")
-            startCaptureSession()
-        }
+        guard let session else { return }
+        lastPhotoDate = .now
+        session.resume()
+        Log.capture.notice("Tips sheet closed, session resumed")
     }
 
     func finish() {
@@ -213,16 +199,16 @@ final class ScanFlowModel {
         session?.cancel()
     }
 
-    /// Starts a new scan from the result or failure screen. Earlier scans stay on disk.
-    func startOver() {
-        Log.flow.notice("Start over")
+    /// Back to the idle state (the intro screen) from a result, a failure or a cancelled scan.
+    /// Earlier scans stay on disk.
+    func reset() {
+        Log.flow.notice("Reset")
         tearDownSession()
         reconstructor = nil
         modelSize = nil
         canRetryProcessing = false
         folder = nil
         phase = .ready
-        begin()
     }
 
     func cancelReconstruction() {
@@ -351,7 +337,7 @@ final class ScanFlowModel {
         if case ObjectCaptureSession.Error.cancelled = error {
             Log.capture.notice("Session cancelled; discarding this scan")
             folder?.delete()
-            startOver()
+            reset()
         } else {
             Log.capture.error("Session failed: \(String(describing: error), privacy: .public)")
             tearDownSession()

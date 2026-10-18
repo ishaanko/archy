@@ -1,96 +1,109 @@
-//
-//  PositioningDiagram.swift
-//  FootScan
-//
-
 import SwiftUI
 
 /// Side view of the scan setup: the helper circles the standing foot twice, at knee height and near the floor.
+/// Plays once when it appears (lap 1, then lap 2); tap to replay. It never loops.
 @MainActor
 struct PositioningDiagram: View {
     private static let canvas = CGSize(width: 350, height: 250)
     private static let floorY: CGFloat = 200
-    /// The helper's walking path on the floor, centered on the foot.
-    private static let ring = CGRect(x: 52, y: 176, width: 292, height: 48)
-    private static let lap1Phone = CGPoint(x: 52, y: 52)
-    private static let lap2Phone = CGPoint(x: 52, y: 182)
+    private static let phoneX: CGFloat = 52
+    private static let kneeY: CGFloat = 52
+    private static let lowY: CGFloat = 182
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lap = 1
+    /// How far around the floor ring the helper is, 0 to 1.
+    @State private var progress = 0.0
+    @State private var playback: Task<Void, Never>?
+
+    private var phoneY: CGFloat { lap == 1 ? Self.kneeY : Self.lowY }
 
     var body: some View {
-        Canvas { context, size in
-            let scale = size.width / Self.canvas.width
-            context.scaleBy(x: scale, y: scale)
-            Self.draw(in: &context)
+        Button(action: play) {
+            VStack(alignment: .leading, spacing: Space.md) {
+                GeometryReader { proxy in
+                    scene
+                        .frame(width: Self.canvas.width, height: Self.canvas.height)
+                        .scaleEffect(proxy.size.width / Self.canvas.width, anchor: .topLeading)
+                }
+                .aspectRatio(Self.canvas.width / Self.canvas.height, contentMode: .fit)
+
+                HStack {
+                    Text(lap == 1 ? "Lap 1 · knee height" : "Lap 2 · near the floor")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.ink2)
+                        .contentTransition(.opacity)
+                    Spacer()
+                    Text("Tap to replay")
+                        .font(.footnote)
+                        .foregroundStyle(.inkTertiary)
+                }
+            }
         }
-        .aspectRatio(Self.canvas.width / Self.canvas.height, contentMode: .fit)
-        .accessibilityElement()
+        .buttonStyle(.archyPressable)
         .accessibilityLabel("Hold the phone about 50 centimeters from the foot. Walk all the way around once at knee height, then again with the phone near the floor.")
+        .accessibilityHint("Replays the animation")
+        .onAppear(perform: play)
+        .onDisappear { playback?.cancel() }
     }
 
-    private static func draw(in context: inout GraphicsContext) {
+    /// Back of the ring and the sight lines sit under the leg; the front of the ring and the phone sit over it.
+    private var scene: some View {
+        let sweep = StrokeStyle(lineWidth: 2.5, lineCap: .round)
+        return ZStack {
+            LapArc(progress: progress, back: true).stroke(Color.brand, style: sweep)
+            SightLines(phoneY: phoneY)
+                .stroke(Color.inkTertiary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 4]))
+            Canvas { context, _ in Self.drawLeg(in: &context) }
+                .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.35)],
+                                     startPoint: .top, endPoint: .bottom))
+            LapArc(progress: progress, back: false).stroke(Color.brand, style: sweep)
+            LapHead(progress: progress).fill(Color.brand)
+            Image(systemName: "iphone")
+                .font(.system(size: 28))
+                .foregroundStyle(.ink)
+                .rotationEffect(.degrees(lap == 1 ? 35 : 4))
+                .position(x: Self.phoneX, y: phoneY)
+        }
+    }
+
+    /// Lap 1 sweeps the ring at knee height, then the phone drops and lap 2 sweeps it again.
+    private func play() {
+        playback?.cancel()
+        playback = Task {
+            var instant = Transaction()
+            instant.disablesAnimations = true
+            withTransaction(instant) { lap = 1; progress = 0 }
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            withAnimation(Motion.reveal.reduced(reduceMotion)) { progress = 1 }
+            try? await Task.sleep(for: .milliseconds(1200))
+            guard !Task.isCancelled else { return }
+            withAnimation(Motion.smooth.reduced(reduceMotion)) { lap = 2 }
+            withTransaction(instant) { progress = 0 }
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            withAnimation(Motion.reveal.reduced(reduceMotion)) { progress = 1 }
+        }
+    }
+
+    private static func drawLeg(in context: inout GraphicsContext) {
         let place = CGAffineTransform(translationX: 144, y: floorY)
         let legFill = FootProfile.path(shinHeight: 180, closed: true).applying(place)
         let legOutline = FootProfile.path(shinHeight: 180, closed: false).applying(place)
-        let tint = GraphicsContext.Shading.style(.tint)
-        let dashed = StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 4])
 
         context.stroke(Path { $0.move(to: CGPoint(x: 8, y: floorY)); $0.addLine(to: CGPoint(x: 342, y: floorY)) },
-                       with: .color(.secondary), lineWidth: 1.5)
-
-        // The back of the ring and the sight lines disappear behind the leg.
-        var behind = context
-        behind.clip(to: legFill, options: .inverse)
-        behind.stroke(DiagramShapes.arc(in: ring, from: .pi, to: 2 * .pi), with: tint,
-                      style: StrokeStyle(lineWidth: 2, lineCap: .round))
-        behind.stroke(sightLine(from: lap1Phone, to: CGPoint(x: 190, y: 178)), with: tint, style: dashed)
-        behind.stroke(sightLine(from: lap2Phone, to: CGPoint(x: 190, y: 192)), with: tint, style: dashed)
-        behind.stroke(Path { $0.move(to: CGPoint(x: 72, y: lap1Phone.y)); $0.addLine(to: CGPoint(x: 230, y: lap1Phone.y)) },
-                      with: .color(.secondary), style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [1, 4]))
-
-        context.fill(legFill, with: .color(.secondary.opacity(0.18)))
-        context.stroke(legOutline, with: .color(.primary),
+                       with: .color(.inkTertiary), lineWidth: 1.5)
+        context.fill(legFill, with: .color(.bg))
+        context.fill(legFill, with: .color(.ink.opacity(0.08)))
+        context.stroke(legOutline, with: .color(.ink),
                        style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-
-        context.stroke(DiagramShapes.arc(in: ring, from: 0, to: .pi), with: tint,
-                       style: StrokeStyle(lineWidth: 2, lineCap: .round))
-        for t in [Double.pi / 4, -Double.pi / 4 - 0.25] {
-            let point = CGPoint(x: ring.midX + ring.width / 2 * cos(t), y: ring.midY + ring.height / 2 * sin(t))
-            let heading = Angle(radians: atan2(-ring.height * cos(t), ring.width * sin(t)))
-            context.fill(DiagramShapes.arrowhead(at: point, heading: heading, size: 9), with: tint)
-        }
-
-        drawPhone(at: lap1Phone, tilt: 35, in: context)
-        drawPhone(at: lap2Phone, tilt: 4, in: context)
-
-        let labelFont = Font.system(size: 12)
-        context.draw(Text("\(Text("Lap 1").bold()) · knee height").font(labelFont),
-                     at: CGPoint(x: 16, y: 20), anchor: .leading)
-        context.draw(Text("\(Text("Lap 2").bold()) · near the floor").font(labelFont),
-                     at: CGPoint(x: 16, y: 152), anchor: .leading)
-        context.draw(Text("walk all the\nway around").font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.tint),
-                     at: CGPoint(x: 302, y: 154), anchor: .center)
-
-        drawDistance(from: lap2Phone.x, to: ring.midX, y: 238, in: context)
-    }
-
-    /// A dashed line from the phone's camera to a point on the foot.
-    private static func sightLine(from phone: CGPoint, to target: CGPoint) -> Path {
-        let dx = target.x - phone.x, dy = target.y - phone.y
-        let length = (dx * dx + dy * dy).squareRoot()
-        let start = CGPoint(x: phone.x + dx / length * 14, y: phone.y + dy / length * 14)
-        return Path { $0.move(to: start); $0.addLine(to: target) }
-    }
-
-    private static func drawPhone(at point: CGPoint, tilt: Double, in context: GraphicsContext) {
-        var phone = context
-        phone.translateBy(x: point.x, y: point.y)
-        phone.rotate(by: .degrees(tilt))
-        phone.draw(Text(Image(systemName: "iphone")).font(.system(size: 28)).foregroundStyle(.tint), at: .zero)
+        drawDistance(from: phoneX, to: LapGeometry.ring.midX, y: 238, in: context)
     }
 
     /// The "≈ 50 cm" dimension marker under the floor, from the phone to the middle of the foot.
     private static func drawDistance(from x0: CGFloat, to x1: CGFloat, y: CGFloat, in context: GraphicsContext) {
-        let label = context.resolve(Text("≈ 50 cm").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary))
+        let label = context.resolve(Text("≈ 50 cm").font(.system(size: 11, weight: .medium)).foregroundStyle(Color.inkSecondary))
         let mid = (x0 + x1) / 2
         let gap = label.measure(in: CGSize(width: 200, height: 40)).width / 2 + 5
         let ticks = Path { path in
@@ -99,10 +112,91 @@ struct PositioningDiagram: View {
             path.move(to: CGPoint(x: x0 + 1, y: y)); path.addLine(to: CGPoint(x: mid - gap, y: y))
             path.move(to: CGPoint(x: mid + gap, y: y)); path.addLine(to: CGPoint(x: x1 - 1, y: y))
         }
-        context.stroke(ticks, with: .color(.secondary), lineWidth: 1)
-        context.fill(DiagramShapes.arrowhead(at: CGPoint(x: x0 + 1, y: y), heading: .degrees(180), size: 5), with: .color(.secondary))
-        context.fill(DiagramShapes.arrowhead(at: CGPoint(x: x1 - 1, y: y), heading: .zero, size: 5), with: .color(.secondary))
+        context.stroke(ticks, with: .color(.inkTertiary), lineWidth: 1)
+        context.fill(DiagramShapes.arrowhead(at: CGPoint(x: x0 + 1, y: y), heading: .degrees(180), size: 5), with: .color(.inkTertiary))
+        context.fill(DiagramShapes.arrowhead(at: CGPoint(x: x1 - 1, y: y), heading: .zero, size: 5), with: .color(.inkTertiary))
         context.draw(label, at: CGPoint(x: mid, y: y))
+    }
+}
+
+/// Plain geometry shared by the diagram's animatable shapes, in the diagram's 350 x 250 space.
+private nonisolated enum LapGeometry {
+    /// The helper's walking path on the floor, centered on the foot.
+    static let ring = CGRect(x: 52, y: 176, width: 292, height: 48)
+
+    /// Point on the ring at angle `t` (y points down, so 0 to pi is the near half).
+    static func point(at t: Double) -> CGPoint {
+        CGPoint(x: ring.midX + ring.width / 2 * cos(t), y: ring.midY + ring.height / 2 * sin(t))
+    }
+}
+
+/// The near or far half of the walking ring, drawn up to `progress` (0 to 1 around the whole ring).
+private nonisolated struct LapArc: Shape {
+    var progress: Double
+    let back: Bool
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let start = back ? Double.pi : 0
+        let end = min(start + .pi, progress * 2 * .pi)
+        guard end > start else { return Path() }
+        return Path { path in
+            let steps = 48
+            for i in 0...steps {
+                let point = LapGeometry.point(at: start + (end - start) * Double(i) / Double(steps))
+                if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+            }
+        }
+    }
+}
+
+/// Arrowhead riding the leading end of the walking ring.
+private nonisolated struct LapHead: Shape {
+    var progress: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        guard progress > 0.001 else { return Path() }
+        let t = progress * 2 * .pi
+        let tip = LapGeometry.point(at: t)
+        let heading = atan2(LapGeometry.ring.height / 2 * cos(t), -LapGeometry.ring.width / 2 * sin(t))
+        let size: CGFloat = 9
+        var path = Path()
+        path.move(to: .zero)
+        path.addLine(to: CGPoint(x: -size, y: -size * 0.6))
+        path.addLine(to: CGPoint(x: -size, y: size * 0.6))
+        path.closeSubpath()
+        return path.applying(CGAffineTransform(rotationAngle: heading).concatenating(CGAffineTransform(translationX: tip.x, y: tip.y)))
+    }
+}
+
+/// Dashed lines from the phone's camera to the foot. Follows the phone as it drops between laps.
+private nonisolated struct SightLines: Shape {
+    var phoneY: CGFloat
+
+    var animatableData: CGFloat {
+        get { phoneY }
+        set { phoneY = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let from = CGPoint(x: 52, y: phoneY)
+        // Aim at the shin for the high phone and the ankle for the low one.
+        let target = CGPoint(x: 190, y: 178 + (phoneY - 52) * 14 / 130)
+        let dx = target.x - from.x, dy = target.y - from.y
+        let length = (dx * dx + dy * dy).squareRoot()
+        return Path { path in
+            path.move(to: CGPoint(x: from.x + dx / length * 14, y: from.y + dy / length * 14))
+            path.addLine(to: target)
+        }
     }
 }
 
@@ -119,7 +213,7 @@ struct BoxTrimDiagram: View {
         }
         .aspectRatio(Self.canvas.width / Self.canvas.height, contentMode: .fit)
         .frame(maxWidth: 170)
-        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
         .accessibilityElement()
         .accessibilityLabel("Drag the top of the box down to the ankle bone.")
     }
