@@ -27,53 +27,105 @@ enum VoiceConnection {
               url.path.hasSuffix("/narrate") else { return nil }
         return url
     }
+
+    #if DEBUG
+    private static var appliedOverrides = false
+    /// Debug builds only: `-ArchyVoiceProxyURL <url> -ArchyVoiceTokenFile <path>` stores the token from that file
+    /// in the Keychain and turns Grok on, so UI tests can exercise the live proxy without typing secrets.
+    /// The token is never logged.
+    static func applyLaunchOverrides() {
+        guard !appliedOverrides else { return }
+        appliedOverrides = true
+        let defaults = UserDefaults.standard
+        guard let path = defaults.string(forKey: "ArchyVoiceTokenFile"),
+              let url = defaults.string(forKey: "ArchyVoiceProxyURL"), validURL(url) != nil,
+              let raw = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+        let token = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard token.count >= 24, saveToken(token) else { return }
+        defaults.set(url, forKey: "voice.proxyURL")
+        defaults.set(true, forKey: "voice.grokEnabled")
+    }
+    #endif
+}
+
+/// Fetched Grok narration kept in Caches, so later sessions play instantly and offline.
+enum VoiceCache {
+    /// Bump together with a change to `narrationCatalog` text or the xAI voice in `services/voice/server.mjs`,
+    /// so installed apps drop their saved audio.
+    static let version = "2"
+
+    private static var root: URL { URL.cachesDirectory.appending(path: "ArchyVoice", directoryHint: .isDirectory) }
+    private static var directory: URL { root.appending(path: "v" + version, directoryHint: .isDirectory) }
+    private static func file(_ script: String) -> URL {
+        let safe = String(script.map { $0.isLetter || $0.isNumber || $0 == "." ? $0 : "_" })
+        return directory.appending(path: safe + ".mp3")
+    }
+
+    static func data(for script: String) -> Data? { try? Data(contentsOf: file(script)) }
+
+    static func store(_ bytes: Data, for script: String) {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? bytes.write(to: file(script), options: .atomic)
+    }
+
+    /// Removes audio saved under older catalog versions.
+    static func purgeOldVersions() {
+        let current = directory.lastPathComponent
+        let old = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        for url in old where url.lastPathComponent != current { try? FileManager.default.removeItem(at: url) }
+    }
 }
 
 @MainActor @Observable
 final class GuidanceVoice {
+    /// A request budget long enough for a cold xAI render of the longest script.
+    private static let patientTimeout: TimeInterval = 12
+    nonisolated private static let maxAudioBytes = 2_097_152
+    private static var prefetching: Set<String> = []
+    private static var didPurge = false
+
     private let synthesizer = AVSpeechSynthesizer()
     private var player: AVAudioPlayer?
     private var task: Task<Void, Never>?
-    private var audioCache: [String: Data] = [:]
     private(set) var status = "On-device voice"
+
+    init() {
+        if !Self.didPurge { Self.didPurge = true; VoiceCache.purgeOldVersions() }
+        #if DEBUG
+        VoiceConnection.applyLaunchOverrides()
+        #endif
+    }
 
     /// Personalized quiz/history text always stays on-device.
     func read(_ text: String) {
         stop(); status = "On-device voice"
         speakLocally(text)
     }
+
     /// Only a public, fixed script ID is sent to the optional proxy. Never user text.
-    func readScript(_ script: String, fallback: String) {
+    /// Plays saved audio instantly. Otherwise fetches it (patiently), or for a `timed` cue, which would be
+    /// late by the time it arrived, speaks the fallback on-device right away. Pair timed cues with `prefetch`.
+    func readScript(_ script: String, fallback: String, timed: Bool = false) {
         stop()
-        let defaults = UserDefaults.standard
-        guard defaults.bool(forKey: "voice.grokEnabled"),
-              let url = VoiceConnection.validURL(defaults.string(forKey: "voice.proxyURL") ?? ""),
-              let token = VoiceConnection.token(), token.count >= 24 else { read(fallback); return }
-        if let bytes = audioCache[script], play(bytes) { status = "Grok voice (cached)"; return }
+        guard let connection = Self.connection() else {
+            status = "Grok is off, using on-device voice"
+            speakLocally(fallback)
+            return
+        }
+        if let bytes = VoiceCache.data(for: script), play(bytes) { status = "Grok voice (saved)"; return }
+        if timed {
+            status = "Grok not ready, using on-device voice"
+            speakLocally(fallback)
+            return
+        }
         status = "Loading Grok voice"
         task = Task {
             do {
-                var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 4)
-                request.httpMethod = "POST"
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.httpBody = try JSONEncoder().encode(["script_id": script])
-                let configuration = URLSessionConfiguration.ephemeral
-                configuration.urlCache = nil
-                let session = URLSession(configuration: configuration)
-                defer { session.invalidateAndCancel() }
-                // Bound response memory even if a configured proxy is misbehaving.
-                let (stream, response) = try await session.bytes(for: request)
-                guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-                      http.mimeType == "audio/mpeg", response.expectedContentLength <= 2_097_152 else { throw VoiceError.unavailable }
-                var bytes = Data()
-                for try await byte in stream {
-                    guard bytes.count < 2_097_152 else { throw VoiceError.unavailable }
-                    bytes.append(byte)
-                }
+                let bytes = try await Self.fetch(script, from: connection.url, token: connection.token, timeout: Self.patientTimeout)
                 try Task.checkCancellation()
-                guard UserDefaults.standard.bool(forKey: "voice.grokEnabled"), play(bytes) else { throw VoiceError.unavailable }
-                audioCache[script] = bytes
+                guard UserDefaults.standard.bool(forKey: "voice.grokEnabled") else { throw VoiceError.unavailable }
+                VoiceCache.store(bytes, for: script)
+                guard play(bytes) else { throw VoiceError.unavailable }
                 status = "Grok voice"
             } catch {
                 guard !Task.isCancelled else { return }
@@ -82,6 +134,62 @@ final class GuidanceVoice {
             }
         }
     }
+
+    /// Downloads scripts into the on-disk cache ahead of time, so `readScript` plays them instantly.
+    /// Does nothing when Grok is off or a script is already saved. Keeps running after `stop()`.
+    func prefetch(_ scripts: [String]) {
+        guard let connection = Self.connection() else { return }
+        let missing = scripts.filter { VoiceCache.data(for: $0) == nil && !Self.prefetching.contains($0) }
+        guard !missing.isEmpty else { return }
+        Self.prefetching.formUnion(missing)
+        Task {
+            await withTaskGroup(of: (String, Data?).self) { group in
+                for script in missing {
+                    group.addTask { (script, try? await Self.fetch(script, from: connection.url, token: connection.token, timeout: Self.patientTimeout)) }
+                }
+                for await (script, bytes) in group {
+                    if let bytes { VoiceCache.store(bytes, for: script) }
+                    Self.prefetching.remove(script)
+                }
+            }
+        }
+    }
+
+    func stop() { task?.cancel(); task = nil; player?.stop(); player = nil; synthesizer.stopSpeaking(at: .immediate) }
+
+    private struct Connection: Sendable { let url: URL; let token: String }
+
+    private static func connection() -> Connection? {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: "voice.grokEnabled"),
+              let url = VoiceConnection.validURL(defaults.string(forKey: "voice.proxyURL") ?? ""),
+              let token = VoiceConnection.token(), token.count >= 24 else { return nil }
+        return Connection(url: url, token: token)
+    }
+
+    nonisolated private static func fetch(_ script: String, from url: URL, token: String, timeout: TimeInterval) async throws -> Data {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["script_id": script])
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        // Bound response memory even if a configured proxy is misbehaving.
+        let (stream, response) = try await session.bytes(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              http.mimeType == "audio/mpeg", response.expectedContentLength <= maxAudioBytes else { throw VoiceError.unavailable }
+        var bytes = Data()
+        for try await byte in stream {
+            guard bytes.count < maxAudioBytes else { throw VoiceError.unavailable }
+            bytes.append(byte)
+        }
+        guard !bytes.isEmpty else { throw VoiceError.unavailable }
+        return bytes
+    }
+
     private func play(_ bytes: Data) -> Bool {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
@@ -90,13 +198,28 @@ final class GuidanceVoice {
             return audio.play()
         } catch { return false }
     }
+
     private func speakLocally(_ text: String) {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+        // Default rate and pitch: the voice quality matters far more than tweaking them.
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US"); utterance.rate = 0.46
+        utterance.voice = Self.bestLocalVoice()
         synthesizer.speak(utterance)
     }
-    func stop() { task?.cancel(); task = nil; player?.stop(); player = nil; synthesizer.stopSpeaking(at: .immediate) }
+
+    /// The highest-quality installed English voice (premium, then enhanced, then compact), preferring en-US.
+    /// Novelty and Eloquence voices are skipped.
+    private static func bestLocalVoice() -> AVSpeechSynthesisVoice? {
+        let english = AVSpeechSynthesisVoice.speechVoices().filter {
+            $0.language.hasPrefix("en") && !$0.identifier.contains("speech.synthesis.voice") && !$0.identifier.contains("eloquence")
+        }
+        let best = english.max { lhs, rhs in
+            if lhs.quality != rhs.quality { return lhs.quality.rawValue < rhs.quality.rawValue }
+            return lhs.language != "en-US" && rhs.language == "en-US"
+        }
+        return best ?? AVSpeechSynthesisVoice(language: "en-US")
+    }
+
     private enum VoiceError: Error { case unavailable }
 }
 
@@ -132,7 +255,7 @@ struct GuidanceSettingsView: View {
                         .disabled(!configured)
                         .accessibilityIdentifier("settings.grok")
                     Button {
-                        voice.readScript("welcome", fallback: "Welcome to archy. Let's take this one step at a time.")
+                        voice.readScript("welcome", fallback: "Welcome to Archy. Let's take this one step at a time.")
                     } label: {
                         HStack {
                             Text("Test voice")
@@ -144,7 +267,7 @@ struct GuidanceSettingsView: View {
                 } header: {
                     sectionHeader("Voice")
                 } footer: {
-                    Text("Grok sends only fixed instruction IDs to your service. Your answers, photos and audio stay on this iPhone.")
+                    Text("Grok sends only fixed instruction IDs to your service. Your answers, photos and audio stay on this iPhone.\n\nFor a more natural on-device voice, download an Enhanced or Premium voice in iOS Settings, Accessibility, Spoken Content.")
                 }
                 .listRowBackground(Color.surface)
 

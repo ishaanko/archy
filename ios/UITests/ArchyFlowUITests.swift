@@ -60,6 +60,28 @@ final class ArchyFlowUITests: XCTestCase {
         capture("16-coach-running")
     }
 
+    /// Live check of the Grok proxy: the debug launch arguments load the token from a file into the Keychain and
+    /// enable Grok, then "Test voice" must report Grok rather than the on-device voice. Needs network and the token file.
+    func testVoiceUsesGrokThroughLiveProxy() {
+        app.terminate()
+        app.launchArguments = [
+            "-ArchyFreshInstall", "YES", "-accessibility.voiceGuidance", "NO", "-ArchyRoute", "settings",
+            "-ArchyVoiceProxyURL", "https://tryarchy.vercel.app/api/narrate",
+            "-ArchyVoiceTokenFile", "/Users/ishaanko/.config/archy/narration-proxy-token",
+        ]
+        app.launch()
+        let test = app.buttons["settings.testVoice"]
+        XCTAssertTrue(test.waitForExistence(timeout: 10), "Missing settings.testVoice")
+        test.tap()
+        // The row's label carries the live status: "Loading Grok voice", then "Grok voice" or a fallback message.
+        let settled = NSPredicate(format: "label CONTAINS 'Grok voice' AND NOT label CONTAINS 'Loading' OR label CONTAINS 'on-device'")
+        expectation(for: settled, evaluatedWith: test)
+        waitForExpectations(timeout: 20)
+        capture("voice-status")
+        XCTAssertTrue(test.label.contains("Grok voice"), "Expected Grok, got: \(test.label)")
+        XCTAssertFalse(test.label.contains("on-device"), "Fell back to on-device: \(test.label)")
+    }
+
     /// Waits for a button, optionally screenshots the screen it's on, then taps it.
     private func tap(_ id: String, shot: String? = nil) {
         let button = app.buttons[id].firstMatch
