@@ -12,7 +12,7 @@ bun run build                             # type-check + production build
 bun scripts/export-stl.ts flat /tmp/x.stl # headless STL (normal | flat | "high arch", optional left|right)
 ```
 
-Deep links for screenshots: `?ex=1|2|3`, `?plate=healthy-flatter&variant=kit`, `?source=p4-left`, `?live=demo&foot=flat&side=left`, plus `screen=watch|result|insole`, `frame=40` (pauses), `details=1`, `map=diff`, `surface=terrain`, `cmap=cividis`, `patterns=1`.
+Deep links for screenshots: `?ex=1|2|3`, `?plate=healthy-flatter&variant=kit`, `?source=p4-left`, `?live=demo&foot=flat&side=left`, plus `screen=watch|result|insole`, `frame=40` (pauses), `details=1`, `map=diff`, `surface=terrain`, `cmap=cividis`, `patterns=1`, `theme=light|dark` (default follows the system).
 
 Foot models: `uv run --with trimesh --with numpy --with scipy --with fast-simplification --with mapbox_earcut --with networkx --with shapely python sim/scripts/pick_feet.py`. Plate steps: `uv run --with nibabel --with numpy --with scipy python sim/scripts/convert_cadwalk.py`.
 
@@ -31,7 +31,7 @@ sensor frames (48 FSR, kPa)        src/core/synth.ts  (or real TDMS via scripts/
    -> view/scene.ts three.js: heatmap texture, optional pressure terrain, sensors, CoP trail, OrbitControls
 ```
 
-`src/core` has no DOM or three.js imports, so it can be ported to Swift. The viewer renders on demand (animation frames run only while playing or while camera damping settles). Canvas keys: arrows rotate, +/- zoom. Patterns default on under `prefers-contrast: more` or forced colors (the web stand-in for iOS `shouldDifferentiateWithoutColor`).
+`src/core` has no DOM or three.js imports, so it can be ported to Swift. The viewer renders on demand (animation frames run only while playing or while camera damping settles). Canvas keys: arrows rotate, +/- zoom. Styling uses the cursor.com tokens in `src/theme.css`; the 3D background is read from `--bg` at runtime. The scanned foot is scaled to 93% of the insole length, centered, with its open leg cut domed over (`view/foot.ts`), and the camera refits to insole plus posed foot on resize and example change. Patterns default on under `prefers-contrast: more` or forced colors (the web stand-in for iOS `shouldDifferentiateWithoutColor`).
 
 Canonical frame: mm, x medial-positive (right-foot data is mirrored on load), y heel to toe. Right-foot STLs are mirrored on export. 3MF export is not implemented.
 

@@ -72,6 +72,7 @@ export function paintHeatmap(
   name: ColormapName,
   patterns: boolean,
   diverging = false,
+  emptyColor: readonly [number, number, number] = EMPTY,
 ): void {
   const { width, height, data } = img
   const level = new Int8Array(width * height)
@@ -94,7 +95,7 @@ export function paintHeatmap(
     for (let px = 0; px < width; px++) {
       const k = py * width + px
       const v = value[k], lv = level[k]
-      let [r, g, b] = empty(lv) ? EMPTY : diverging ? divergingAt(v) : colormapAt(name, v)
+      let [r, g, b] = empty(lv) ? emptyColor : diverging ? divergingAt(v) : colormapAt(name, v)
       if (patterns && !empty(lv)) {
         const edge = (px + 1 < width && level[k + 1] !== lv) || (py + 1 < height && level[k + width] !== lv)
         const band = diverging ? (lv <= -2 ? -2 - lv : lv) : lv
