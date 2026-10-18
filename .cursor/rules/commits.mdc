@@ -1,6 +1,0 @@
-   ---
-   description: Commit conventions
-   alwaysApply: true
-   ---
-   When making git commits, always include this trailer:
-   Co-authored-by: Cursor <cursoragent@cursor.com>
