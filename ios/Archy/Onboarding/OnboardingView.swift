@@ -179,8 +179,7 @@ struct OnboardingView: View {
     private var pain: some View {
         question(step.heading, advancing: false) {
             VStack(alignment: .leading, spacing: Space.xl) {
-                MetricText(value: Double(shownPain))
-                    .scaleEffect(reduceMotion ? 1 : 3, anchor: .leading)
+                MetricText(value: Double(shownPain), style: .giant)
                     .frame(height: numberHeight, alignment: .leading)
                     .opacity(painIsRated || answers.pain == .noPain ? 1 : 0.25)
                     .animation(Motion.snappy.reduced(reduceMotion), value: painIsRated)

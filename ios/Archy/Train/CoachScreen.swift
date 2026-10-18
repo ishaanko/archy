@@ -194,8 +194,7 @@ struct CoachScreen<Session: PracticeTimeline, Diagram: View>: View {
     private var ring: some View {
         ZStack {
             CoachRing(progress: ringProgress).id(stepKey).transition(.opacity)
-            MetricText(value: Double(seconds))
-                .scaleEffect(reduceMotion ? 1 : 2.2)
+            MetricText(value: Double(seconds), style: .giant)
         }
         .frame(width: 224, height: 224)
         .opacity(paused ? 0.4 : 1)

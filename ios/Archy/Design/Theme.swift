@@ -7,7 +7,8 @@ import UIKit
 
 extension Color {
     /// A color with separate light and dark values, resolved by UIKit at render time.
-    static func archy(light: UInt32, dark: UInt32) -> Color {
+    /// Nonisolated because SwiftUI resolves the provider off the main thread.
+    nonisolated static func archy(light: UInt32, dark: UInt32) -> Color {
         Color(uiColor: UIColor { traits in
             let hex = traits.userInterfaceStyle == .dark ? dark : light
             return UIColor(red: Double((hex >> 16) & 255) / 255,
