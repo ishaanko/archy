@@ -106,9 +106,166 @@ final class OnboardingUITests: XCTestCase {
         next()
         XCTAssertTrue(app.tabBars.buttons["Add"].isSelected)
     }
+    func testPremiumCoachControls() {
+        finishSimpleQuiz()
+        app.tabBars.buttons["Premium"].tap()
+        XCTAssertTrue(app.buttons["premium.exercises"].waitForExistence(timeout: 5))
+        capture("13-Premium-home")
+        app.buttons["premium.exercises"].tap()
+        XCTAssertTrue(app.buttons["studio.shortFoot"].waitForExistence(timeout: 4))
+        capture("14-Movement-studio")
+        app.buttons["studio.shortFoot"].tap()
+        XCTAssertTrue(app.navigationBars["Exercise coach"].waitForExistence(timeout: 4))
+        capture("15-Short-foot-technique")
+        tapChoice("coach.next")
+        capture("26-Guided-practice-diagram")
+        tapChoice("coach.start")
+        XCTAssertTrue(app.buttons["coach.pause"].waitForExistence(timeout: 3))
+        app.buttons["coach.pause"].tap()
+        XCTAssertTrue(app.staticTexts["Paused"].exists)
+        capture("16-Coach-paused")
+        app.buttons["coach.reset"].tap()
+        XCTAssertTrue(app.buttons["coach.start"].exists)
+        XCTAssertFalse(app.staticTexts["Paused"].exists)
+        app.buttons["coach.start"].tap()
+        XCTAssertTrue(app.staticTexts["Relax"].waitForExistence(timeout: 8))
+        capture("17-Coach-relax-phase")
+        app.navigationBars.buttons["Movement studio"].tap()
+        tapChoice("studio.balance")
+        XCTAssertTrue(app.navigationBars["Balance coach"].waitForExistence(timeout: 4))
+        tapChoice("coach.balance.start")
+        app.buttons["coach.balance.pause"].tap()
+        XCTAssertTrue(app.staticTexts["Paused"].exists)
+        capture("18-Supported-balance")
+        app.buttons["coach.balance.reset"].tap()
+        XCTAssertTrue(app.buttons["coach.balance.start"].exists)
+    }
+    func testPremiumRequestConsentAndPersistence() {
+        finishSimpleQuiz()
+        app.tabBars.buttons["Premium"].tap()
+        tapChoice("premium.spaceInsole")
+        XCTAssertTrue(app.navigationBars["Insole request"].waitForExistence(timeout: 4))
+        app.switches["request.example"].tap()
+        capture("19-Request-sample-data")
+        tapChoice("scan.choose")
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
+        capture("29-Scan-file-picker")
+        app.buttons["Cancel"].tap()
+        let consent = app.switches["request.consent"]
+        for _ in 0..<12 where !consent.isHittable { app.swipeUp() }
+        XCTAssertTrue(consent.isHittable)
+        XCTAssertFalse(app.buttons["request.prepare"].isEnabled)
+        consent.tap()
+        tapChoice("request.prepare")
+        XCTAssertTrue(app.staticTexts["Draft saved · not sent"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["request.share"].exists)
+        capture("20-Consent-and-local-draft")
+        consent.tap()
+        XCTAssertFalse(app.buttons["request.share"].exists)
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        app.tabBars.buttons["Premium"].tap()
+        tapChoice("premium.requests")
+        XCTAssertTrue(app.staticTexts["Demo draft · not sent"].firstMatch.waitForExistence(timeout: 5))
+        capture("21-Saved-request-history")
+    }
+    func testSpaceEnvironmentReachesInsoleRequest() {
+        finishSimpleQuiz()
+        app.tabBars.buttons["Space"].tap()
+        let explorer = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Biomechanics Explorer")).firstMatch
+        for _ in 0..<4 where !explorer.isHittable { app.swipeUp() }
+        explorer.tap()
+        tapChoice("gravity.Moon")
+        app.tabBars.buttons["Premium"].tap()
+        tapChoice("premium.spaceInsole")
+        app.switches["request.example"].tap()
+        for _ in 0..<5 where !app.staticTexts["0.165 g · Space Insole concept"].isHittable { app.swipeUp() }
+        XCTAssertTrue(app.staticTexts["0.165 g · Space Insole concept"].exists)
+        XCTAssertTrue(app.staticTexts["Retention + adjustable cushioning"].exists)
+        capture("22-Moon-insole-concept")
+        // A new environment requires fresh consent; no data is silently shared.
+        let consent = app.switches["request.consent"]
+        for _ in 0..<10 where !consent.isHittable { app.swipeUp() }
+        XCTAssertEqual(consent.value as? String, "0")
+        XCTAssertFalse(app.buttons["request.prepare"].isEnabled)
+        consent.tap()
+        let right = app.segmentedControls.buttons["Right"]
+        for _ in 0..<14 where !right.isHittable { app.swipeDown() }
+        XCTAssertTrue(right.isHittable)
+        right.tap()
+        for _ in 0..<14 where !consent.isHittable { app.swipeUp() }
+        XCTAssertEqual(consent.value as? String, "0")
+        XCTAssertFalse(app.buttons["request.prepare"].isEnabled)
+    }
+    func testPremiumLargeTextAndFreeAccessibility() {
+        finishSimpleQuiz()
+        app.terminate()
+        app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL", "-accessibility.voiceGuidance", "NO"]
+        app.launch()
+        app.tabBars.buttons["Premium"].tap()
+        capture("23-Large-text-premium")
+        tapChoice("premium.exercises")
+        tapChoice("studio.balance")
+        tapChoice("coach.balance.start")
+        app.buttons["coach.balance.pause"].tap()
+        XCTAssertTrue(app.staticTexts["Paused"].exists)
+        capture("24-Large-text-balance-controls")
+        app.tabBars.buttons["Today"].tap()
+        app.buttons["Accessibility settings"].tap()
+        let cues = app.switches["Audio cues"]
+        for _ in 0..<10 where !cues.isHittable { app.swipeUp() }
+        XCTAssertTrue(cues.isHittable)
+        capture("25-Free-accessibility-and-voice")
+        let grok = app.switches["settings.grok"]
+        for _ in 0..<10 where !grok.exists { app.swipeUp() }
+        XCTAssertTrue(grok.exists)
+        XCTAssertFalse(grok.isEnabled)
+        capture("25-Free-accessibility-and-voice")
+    }
+    func testVoiceConfigurationAndOfflineFallback() {
+        app.buttons["Accessibility settings"].tap()
+        tapChoiceByLabel("Remove connection")
+        let url = app.textFields["settings.proxyURL"]
+        for _ in 0..<10 where !url.isHittable { app.swipeUp() }
+        url.tap()
+        url.typeText("https://127.0.0.1:1/narrate")
+        app.buttons["settings.keyboardDone"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        let token = app.secureTextFields["settings.proxyToken"]
+        for _ in 0..<4 where !token.isHittable { app.swipeUp() }
+        token.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        token.typeText("qa-only-proxy-token-not-a-real-secret")
+        app.buttons["settings.keyboardDone"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        tapChoiceByLabel("Save connection")
+        capture("28-Voice-connection-saved")
+        XCTAssertFalse(app.staticTexts["The service token could not be saved in Keychain."].exists)
+        XCTAssertFalse(app.staticTexts["Enter an HTTPS /narrate URL and a service token of at least 24 characters."].exists)
+        let grok = app.switches["settings.grok"]
+        for _ in 0..<10 where !grok.isHittable { app.swipeDown() }
+        XCTAssertTrue(grok.isEnabled)
+        grok.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(grok.value as? String, "1")
+        tapChoiceByLabel("Try voice instructions")
+        app.swipeUp()
+        let fallbackAppeared = app.staticTexts["Grok unavailable · using on-device narration"].waitForExistence(timeout: 10)
+        capture("27-Voice-offline-fallback")
+        XCTAssertTrue(fallbackAppeared)
+        tapChoiceByLabel("Remove connection")
+        for _ in 0..<10 where !grok.exists { app.swipeDown() }
+        XCTAssertFalse(grok.isEnabled)
+    }
+    private func tapChoiceByLabel(_ label: String) {
+        let element = app.buttons[label]
+        for _ in 0..<12 where !element.isHittable { app.swipeUp() }
+        XCTAssertTrue(element.isHittable)
+        element.tap()
+    }
     private func tapChoice(_ identifier: String) {
         let choice = app.buttons[identifier]
-        for _ in 0..<5 where !choice.isHittable { app.swipeUp() }
+        for _ in 0..<14 where !choice.isHittable { app.swipeUp() }
         XCTAssertTrue(choice.isHittable)
         choice.tap()
     }

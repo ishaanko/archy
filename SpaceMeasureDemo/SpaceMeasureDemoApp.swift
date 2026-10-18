@@ -4,12 +4,13 @@ import SwiftUI
 struct SpaceMeasureDemoApp: App {
     @StateObject private var assessments = AssessmentStore()
     @State private var onboarding = OnboardingStore()
+    @State private var requests = InsoleRequestStore()
     var body: some Scene {
-        WindowGroup { AppRootView().environmentObject(assessments).environment(onboarding) }
+        WindowGroup { AppRootView().environmentObject(assessments).environment(onboarding).environment(requests) }
     }
 }
 
-private enum AppTab: Hashable { case today, add, space }
+private enum AppTab: Hashable { case today, add, space, premium }
 
 struct AppRootView: View {
     @Environment(OnboardingStore.self) private var onboarding
@@ -28,6 +29,8 @@ struct AppRootView: View {
                         .tabItem { Label("Add", systemImage: "plus.circle.fill") }.tag(AppTab.add)
                     NavigationStack { SpaceLabHome() }
                         .tabItem { Label("Space", systemImage: "sparkles") }.tag(AppTab.space)
+                    NavigationStack { PremiumHome() }
+                        .tabItem { Label("Premium", systemImage: "crown") }.tag(AppTab.premium)
                 }
                 .tint(Color.archyForeground)
                 .sheet(isPresented: $editingAnswers) {

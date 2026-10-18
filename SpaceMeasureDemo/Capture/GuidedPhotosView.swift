@@ -62,7 +62,7 @@ struct GuidedPhotosView: View {
     }
     private func key(_ side: FootSide, _ angle: PhotoAngle) -> String { side.rawValue + "." + angle.rawValue }
     private func readGuide() {
-        voice.read("Photographing the \(side.title.lowercased()) foot. " + PhotoAngle.allCases.map { $0.title + ". " + $0.instruction }.joined(separator: ". ") + ". Switch feet to add the other three photos. Photos are stored locally. Analysis is not connected.")
+        voice.readScript("photos." + side.rawValue, fallback: "Photographing the \(side.title.lowercased()) foot. " + PhotoAngle.allCases.map { $0.title + ". " + $0.instruction }.joined(separator: ". ") + ". Switch feet to add the other three photos. Photos are stored locally. Analysis is not connected.")
     }
     private func load() {
         guard FileManager.default.fileExists(atPath: file.path) else { return }

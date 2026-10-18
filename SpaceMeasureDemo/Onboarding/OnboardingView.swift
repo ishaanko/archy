@@ -133,7 +133,6 @@ struct OnboardingView: View {
                         ForEach(FootFocus.allCases) { Text($0.title).tag($0) }
                     }.pickerStyle(.segmented)
                 }
-                Text("A previous diagnosis is something you tell us. The app won’t infer one from your answers.").font(.footnote).foregroundStyle(.secondary)
             }
         case .comfort:
             comfortQuestion
@@ -176,10 +175,10 @@ struct OnboardingView: View {
                 Image(systemName: "plus.circle.fill").font(.title).foregroundStyle(Color.journeyAccent)
                 VStack(alignment: .leading, spacing: 6) {
                     Text("First, add your foundation").font(.headline)
-                    Text("Pick guided photos or a tape-measure assessment. Then explore your measurements in SpaceLab.").font(.callout).foregroundStyle(.secondary)
+                    Text("Add photos or measurements, then explore SpaceLab.").font(.callout).foregroundStyle(.secondary)
                 }
             }
-            Text("This quiz helps personalize the experience. It does not diagnose flat feet or recommend treatment.").font(.footnote).foregroundStyle(.secondary)
+            Text("Personalized guidance, not a medical diagnosis.").font(.footnote).foregroundStyle(.secondary)
         }
     }
 
