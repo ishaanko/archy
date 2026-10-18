@@ -1,7 +1,7 @@
 import {
   AmbientLight, BufferAttribute, BufferGeometry, Color, DataTexture, DirectionalLight, InstancedMesh, Line, LineBasicMaterial,
   LinearFilter, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, RGBAFormat, Scene,
-  SphereGeometry, SRGBColorSpace, Vector3, UnsignedByteType, WebGLRenderer,
+  SphereGeometry, SRGBColorSpace, Vector3, UnsignedByteType, WebGLRenderer, type Texture,
 } from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { createHeatmapImage, paintHeatmap, type ColormapName, type HeatmapImage } from "../core/colormap"
@@ -196,9 +196,9 @@ export class InsoleScene {
     this.useFoot(await p)
   }
 
-  /** Shows the user's own scan (canonical frame) instead of a bundled foot. */
-  setScanFoot(positions: Float32Array, indices: Uint32Array): void {
-    this.useFoot(FootModel.fromScan(positions, indices))
+  /** Shows the user's own scan (canonical frame) instead of a bundled foot; with `real`, its textured version instead. */
+  setScanFoot(positions: Float32Array, indices: Uint32Array, real?: { geo: BufferGeometry; map: Texture }): void {
+    this.useFoot(real ? FootModel.fromTextured(real.geo.clone(), real.map) : FootModel.fromScan(positions, indices))
   }
 
   private useFoot(next: FootModel): void {

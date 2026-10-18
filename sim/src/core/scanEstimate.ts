@@ -1,8 +1,8 @@
-import { archRidge, buildInsole, type InsoleLayout, type InsoleMesh } from "./insole"
+import { archRidge, buildInsole, DEFAULT_INSOLE, type InsoleLayout, type InsoleMesh, type InsoleParams } from "./insole"
 import { footOutline, lateralEdgeX, medialEdgeX } from "./outline"
 import { SENSOR_POSITIONS } from "../hardware/layout"
 import { makeGrid, sampleGrid, type Grid } from "./pressure"
-import type { ScanResult } from "./scan"
+import { AHI_HIGHER, AHI_LOWER, type ScanResult } from "./scan"
 import { archShape, gauss, PEAK_KPA, peakTime, STANCE_SECONDS } from "./synth"
 import { templateAt, type Template } from "./template"
 import type { Point } from "./types"
@@ -20,6 +20,8 @@ export interface ScanEstimate {
   before: PressureWalk
   withInsole: PressureWalk
   mesh: InsoleMesh
+  /** A plain flat insole of the same outline: what the foot stands on in the "before" view. */
+  flatMesh: InsoleMesh
   /** How much the estimated peak pressure drops with the insole, percent. */
   peakDropPercent: number
   /** The 6-sensor kit's spots (hardware/layout.ts order and names) moved onto this foot's outline. */
@@ -41,13 +43,16 @@ const REF_WEIGHT_KG = 70
 /** Inset of the warped template from the outline edge, mm (the outline is the footprint plus a margin). */
 const EDGE_INSET = 3
 
-/** Arch support height, mm. From the AHI deficit: 6 mm at the "higher" cutoff (0.365), 8 mm more per 0.1 of AHI below it
- *  (the same slope as the footprint rule in `archHeightFor`), clamped to 4-18 mm; and never above 60% of the measured
- *  medial arch clearance, so it fits under the arch the scan actually shows. */
-export function archHeightFromScan(scan: Pick<ScanResult, "ahi" | "medialArchHeight">): number {
-  const fromAhi = Math.min(18, Math.max(4, 6 + 80 * (0.365 - scan.ahi)))
-  return Math.max(4, Math.min(fromAhi, 0.6 * scan.medialArchHeight))
+/** Arch support height, mm, built like a full-contact custom orthotic: fill the standing gap under the medial arch, then add
+ *  the rise that would bring the arch to a typical AHI (mid-band, 0.34): (0.34 - AHI) x truncated length, since
+ *  AHI = dorsum height / truncated length. Clamped to 8-25 mm. */
+export function archHeightFromScan(scan: Pick<ScanResult, "ahi" | "medialArchHeight" | "truncLength">): number {
+  const correction = Math.max(0, (AHI_LOWER + AHI_HIGHER) / 2 - scan.ahi) * scan.truncLength
+  return Math.min(25, Math.max(8, scan.medialArchHeight + correction))
 }
+
+/** Scan insoles get a deeper heel cup than the generic one, to hold the heel over the taller arch support. */
+export const SCAN_INSOLE: InsoleParams = { ...DEFAULT_INSOLE, heelCupHeight: 14 }
 
 /** Insole feature positions for the scan's own outline (heel at y = 0). */
 export function scanInsoleLayout(scan: ScanResult): InsoleLayout {
@@ -56,7 +61,7 @@ export function scanInsoleLayout(scan: ScanResult): InsoleLayout {
   for (const p of scan.outline) (cx += p.x, cy += p.y)
   return {
     center: { x: cx / scan.outline.length, y: cy / scan.outline.length },
-    archY: scan.medialArchY, archSigma: 26 * (L / 257),
+    archY: scan.medialArchY, archSigma: 32 * (L / 257),
     cupStart: 0.31 * L, cupEnd: 0.19 * L,
     archHeight: archHeightFromScan(scan),
   }
@@ -133,7 +138,8 @@ export function estimateScan(scan: ScanResult, template: Template, weightKg: num
   const spots = toScanFrame(scan, SENSOR_POSITIONS)
   const before = walk(grid, spots, maps, nFrames)
 
-  const mesh = buildInsole(outline, grid, before.peak, null, "left", undefined, layout)
+  const mesh = buildInsole(outline, grid, before.peak, null, "left", SCAN_INSOLE, layout)
+  const flatMesh = buildInsole(outline, grid, before.peak, null, "left", { ...DEFAULT_INSOLE, heelCupHeight: 0, reliefDepth: 0 }, { ...layout, archHeight: 0 })
   const k = Math.min(0.3, 0.025 * mesh.archHeight)
   let archSum = 0
   for (const c of cells) archSum += archMask[c]
@@ -157,7 +163,7 @@ export function estimateScan(scan: ScanResult, template: Template, weightKg: num
   const withInsole = walk(grid, spots, out, nFrames)
   const max = (a: Float32Array) => a.reduce((m, v) => Math.max(m, v), 0)
   return {
-    grid, cells, fs: FS, nFrames, reference, before, withInsole, mesh,
+    grid, cells, fs: FS, nFrames, reference, before, withInsole, mesh, flatMesh,
     peakDropPercent: Math.max(0, Math.round(100 * (1 - max(withInsole.peak) / max(before.peak)))),
     spots,
   }

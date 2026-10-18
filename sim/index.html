@@ -18,73 +18,76 @@
       </header>
       <div class="hero">
         <h1>Check your arch.<br />Print your insole.</h1>
-        <p class="sub">A flat-foot screen from a few cheap pressure sensors.</p>
+        <p class="sub">Scan your foot or walk on a few cheap sensors. Get your arch type and an insole you can 3D print.</p>
       </div>
 
-      <section class="group" aria-labelledby="h-example">
-        <h2 id="h-example" class="sr">Try an example</h2>
+      <section class="group" aria-label="Start">
         <div class="tiles">
-          <button type="button" class="tile" data-example="1"><span class="name">Flatter arch</span></button>
-          <button type="button" class="tile" data-example="2"><span class="name">Typical arch</span></button>
-          <button type="button" class="tile" data-example="3"><span class="name">Higher arch</span></button>
-        </div>
-      </section>
-
-      <section class="group" aria-labelledby="h-scans">
-        <h2 id="h-scans" class="sr">Real foot scans</h2>
-        <div class="tiles">
-          <button type="button" class="tile" data-scan="ishaan"><span class="name">Ishaan's foot</span><span class="note">iPhone scan</span></button>
-          <button type="button" class="tile" data-scan="prakhar"><span class="name">Prakhar's foot</span><span class="note">iPhone scan</span></button>
           <div class="tile panel" id="scan-drop">
-            <span class="name">Your foot scan</span>
-            <p class="note">Drop an STL file here, or pick one.</p>
+            <span class="name">Scan your foot</span>
+            <p class="note">An iPhone 3D scan gives your arch height and a custom insole.</p>
             <div class="controls">
-              <button type="button" id="scan-upload" class="btn primary">Upload scan</button>
+              <button type="button" class="btn primary scan-pick" data-scan="ishaan" aria-label="Ishaan's foot">Ishaan</button>
+              <button type="button" class="btn scan-pick" data-scan="prakhar" aria-label="Prakhar's foot">Prakhar</button>
+              <button type="button" class="btn scan-pick" data-scan="pranav" aria-label="Pranav's foot">Pranav</button>
+            </div>
+            <div class="controls">
+              <button type="button" id="scan-upload" class="btn ghost">Upload your own STL</button>
               <input type="file" id="scan-file" accept=".stl,.obj,.usdz" hidden />
             </div>
             <p id="scan-error" class="note" role="status" hidden></p>
           </div>
-        </div>
-      </section>
-
-      <section class="group" aria-labelledby="h-more">
-        <h2 id="h-more" class="sr">Recordings and your own sensors</h2>
-        <div class="tiles">
           <div class="tile panel">
-            
-            <span class="name">Plate walk</span>
-            <p class="note">See what 6 sensors would read.</p>
-            <div class="controls">
-              <select id="plate-step" aria-label="Clinic plate recording, which person"></select>
-              <button type="button" id="go-plate" class="btn">Watch</button>
-            </div>
-          </div>
-          <div class="tile panel">
-            
-            <span class="name">Recorded walk</span>
-            <p class="note">48 sensors, real steps.</p>
-            <div class="controls">
-              <select id="recorded" aria-label="Recorded walk, which person and foot"></select>
-              <button type="button" id="go-recorded" class="btn">Watch</button>
-            </div>
-          </div>
-          <div class="tile panel">
-            <span class="name">Your sensors</span>
+            <span class="name">Walk on sensors</span>
+            <p class="note">Six pressure sensors in your shoe show where you carry your weight as you walk.</p>
             <fieldset class="seg" aria-label="Which foot?">
               <label><input type="radio" name="side" value="left" checked /><span>Left</span></label>
               <label><input type="radio" name="side" value="right" /><span>Right</span></label>
             </fieldset>
             <div class="controls">
-              <button type="button" id="connect" class="btn primary">Connect sensor</button>
+              <button type="button" id="go-demo" class="btn primary">Try a demo walk</button>
+              <button type="button" id="connect" class="btn">Connect sensors</button>
             </div>
-            <div class="controls">
-              <select id="demo-foot" aria-label="Which foot the demo sensor pretends to be">
-                <option value="flat">Flatter arch</option><option value="normal" selected>Typical arch</option><option value="high arch">Higher arch</option>
-              </select>
-              <button type="button" id="go-demo" class="btn">Demo sensor</button>
-            </div>
-            <p id="serial-note" class="note" hidden>This browser cannot connect to sensors. Use Chrome or Edge, or try the demo.</p>
+            <p id="serial-note" class="note" hidden>Connecting needs Chrome or Edge. The demo works anywhere.</p>
             <p id="connect-error" class="note err" role="alert" hidden></p>
+          </div>
+          <div class="tile panel">
+            <span class="name">Sensor sandbox</span>
+            <p class="note">Move sensors around a foot and see how much of the pressure they catch.</p>
+            <div class="controls">
+              <a class="btn primary" href="./sandbox.html">Open the sandbox</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="group more" aria-labelledby="h-more">
+        <h2 id="h-more" class="section-title">More demos</h2>
+        <div class="tiles">
+          <div class="tile panel">
+            <span class="name">Three arch types</span>
+            <p class="note">Simulated walks on a flatter, typical and higher arch.</p>
+            <div class="controls">
+              <button type="button" class="btn" data-example="1">Flatter</button>
+              <button type="button" class="btn" data-example="2">Typical</button>
+              <button type="button" class="btn" data-example="3">Higher</button>
+            </div>
+          </div>
+          <div class="tile panel">
+            <span class="name">Hospital pressure plate</span>
+            <p class="note">Real steps from a clinic, and what our six sensors would have read.</p>
+            <div class="controls">
+              <select id="plate-step" aria-label="Which recorded step"></select>
+              <button type="button" id="go-plate" class="btn">Watch</button>
+            </div>
+          </div>
+          <div class="tile panel">
+            <span class="name">Lab sensor insole</span>
+            <p class="note">Real walks recorded with a 48-sensor research insole.</p>
+            <div class="controls">
+              <select id="recorded" aria-label="Which person and foot"></select>
+              <button type="button" id="go-recorded" class="btn">Watch</button>
+            </div>
           </div>
         </div>
       </section>
@@ -111,6 +114,7 @@
           <div class="row">
             <button type="button" id="play" class="btn" aria-label="Play or pause">Pause</button>
             <label class="check"><input id="show-foot" type="checkbox" checked /> Show foot</label>
+            <label class="check" id="real-box" hidden><input id="realistic" type="checkbox" /> Realistic</label>
           </div>
           <fieldset id="variant-box" class="seg" aria-label="Show" hidden>
             <label><input type="radio" name="variant" value="plate" checked /><span>Clinic plate</span></label>
