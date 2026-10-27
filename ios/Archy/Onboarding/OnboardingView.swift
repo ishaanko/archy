@@ -36,6 +36,8 @@ struct OnboardingView: View {
     @State private var showsSettings = false
     @State private var voice = GuidanceVoice()
     @State private var routed = false
+    /// Visible height of a question's scroll area, so short steps still fill it.
+    @State private var questionHeight: CGFloat = 0
     @AppStorage("accessibility.voiceGuidance") private var automaticNarration = false
     @Environment(AppRouter.self) private var router
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -245,26 +247,33 @@ struct OnboardingView: View {
 
     /// Shared question layout: heading on top, answers pinned low, and a bottom slot that holds
     /// a quiet "Next" when this step already has an answer (after Back, or when editing).
+    /// Scrolls only when large text makes the step taller than the screen.
     private func question<Answers: View, Footer: View>(
         _ title: String,
         advancing hasAnswer: Bool,
         @ViewBuilder answersView: () -> Answers,
         @ViewBuilder footer: () -> Footer = { EmptyView() }
     ) -> some View {
-        let stack = VStack(alignment: .leading, spacing: Space.xl) {
-            Text(title)
-                .display(.hero)
-                .padding(.top, Space.lg)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: Space.xl)
-            answersView()
-        }
-        return VStack(spacing: Space.md) {
-            ViewThatFits(in: .vertical) {
-                stack
-                ScrollView { stack }.scrollBounceBehavior(.basedOnSize)
+        VStack(spacing: Space.md) {
+            // Not a ViewThatFits with a scrolling copy: SwiftUI builds that copy's ForEach rows on its
+            // render thread mid-transition, and the main-actor row closures crash there.
+            ScrollView {
+                VStack(alignment: .leading, spacing: Space.xl) {
+                    Text(title)
+                        .display(.hero)
+                        .padding(.top, Space.lg)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: Space.xl)
+                    answersView()
+                }
+                .frame(maxWidth: .infinity, minHeight: questionHeight, alignment: .topLeading)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .contentMargins(.horizontal, Space.page, for: .scrollContent)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { questionHeight = $0 }
+            // Hidden until measured, so the first question never shows its answers bunched under the heading.
+            .opacity(questionHeight > 0 ? 1 : 0)
             ZStack(alignment: .trailing) {
                 footer()
                 if hasAnswer && !locked {
@@ -275,8 +284,8 @@ struct OnboardingView: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 54, alignment: .trailing)
+            .padding(.horizontal, Space.page)
         }
-        .padding(.horizontal, Space.page)
         .padding(.bottom, Space.lg)
     }
 

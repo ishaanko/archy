@@ -78,6 +78,14 @@ enum VoiceCache {
 
 @MainActor @Observable
 final class GuidanceVoice: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
+    /// The Grok voice proxy is a development feature. Release builds speak on-device only and make no
+    /// network requests, so the App Store build has nothing to configure and no data leaves the phone.
+    #if DEBUG
+    static let offersGrok = true
+    #else
+    static let offersGrok = false
+    #endif
+
     /// A request budget long enough for a cold xAI render of the longest script.
     private static let patientTimeout: TimeInterval = 12
     nonisolated private static let maxAudioBytes = 2_097_152
@@ -117,7 +125,7 @@ final class GuidanceVoice: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerD
     func readScript(_ script: String, fallback: String, timed: Bool = false) {
         stop()
         guard let connection = Self.connection() else {
-            status = "Grok is off, using on-device voice"
+            status = Self.offersGrok ? "Grok is off, using on-device voice" : "On-device voice"
             speakLocally(fallback)
             return
         }
@@ -190,7 +198,7 @@ final class GuidanceVoice: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerD
 
     private static func connection() -> Connection? {
         let defaults = UserDefaults.standard
-        guard defaults.bool(forKey: "voice.grokEnabled"),
+        guard offersGrok, defaults.bool(forKey: "voice.grokEnabled"),
               let url = VoiceConnection.validURL(defaults.string(forKey: "voice.proxyURL") ?? ""),
               let token = VoiceConnection.token(), token.count >= 24 else { return nil }
         return Connection(url: url, token: token)
@@ -289,9 +297,11 @@ struct GuidanceSettingsView: View {
                 .listRowBackground(Color.surface)
 
                 Section {
-                    Toggle("Grok voice", isOn: $grokEnabled)
-                        .disabled(!configured)
-                        .accessibilityIdentifier("settings.grok")
+                    if GuidanceVoice.offersGrok {
+                        Toggle("Grok voice", isOn: $grokEnabled)
+                            .disabled(!configured)
+                            .accessibilityIdentifier("settings.grok")
+                    }
                     Button {
                         voice.readScript("welcome", fallback: "Welcome to Archy. Let's take this one step at a time.")
                     } label: {
@@ -305,33 +315,11 @@ struct GuidanceSettingsView: View {
                 } header: {
                     sectionHeader("Voice")
                 } footer: {
-                    Text("Grok sends only fixed instruction IDs to your service. Your answers, photos and audio stay on this iPhone.\n\nFor a more natural on-device voice, download an Enhanced or Premium voice in iOS Settings, Accessibility, Spoken Content.")
+                    Text(voiceFooter)
                 }
                 .listRowBackground(Color.surface)
 
-                Section {
-                    TextField("https://your-service/narrate", text: $proxyURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .focused($focusedField, equals: .url)
-                        .accessibilityIdentifier("settings.proxyURL")
-                    SecureField("Access token", text: $proxyToken)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($focusedField, equals: .token)
-                        .accessibilityIdentifier("settings.proxyToken")
-                    Button("Save", action: saveConnection)
-                    Button("Remove", role: .destructive, action: removeConnection)
-                    if let error {
-                        Text(error).font(.footnote).foregroundStyle(.negative)
-                    }
-                } header: {
-                    sectionHeader("Voice proxy")
-                } footer: {
-                    Text("The token is stored in Keychain. Keep the xAI key on your server.")
-                }
-                .listRowBackground(Color.surface)
+                if GuidanceVoice.offersGrok { proxySection }
             }
             .scrollContentBackground(.hidden)
             .background(Color.bg)
@@ -349,6 +337,39 @@ struct GuidanceSettingsView: View {
             .onDisappear { voice.stop() }
         }
         .archyScreen()
+    }
+
+    private var voiceFooter: String {
+        let tip = "For a more natural on-device voice, download an Enhanced or Premium voice in iOS Settings, Accessibility, Spoken Content."
+        guard GuidanceVoice.offersGrok else { return tip }
+        return "Grok sends only fixed instruction IDs to your service. Your answers, photos and audio stay on this iPhone.\n\n" + tip
+    }
+
+    /// Debug builds only (see `GuidanceVoice.offersGrok`).
+    private var proxySection: some View {
+        Section {
+            TextField("https://your-service/narrate", text: $proxyURL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .focused($focusedField, equals: .url)
+                .accessibilityIdentifier("settings.proxyURL")
+            SecureField("Access token", text: $proxyToken)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .focused($focusedField, equals: .token)
+                .accessibilityIdentifier("settings.proxyToken")
+            Button("Save", action: saveConnection)
+            Button("Remove", role: .destructive, action: removeConnection)
+            if let error {
+                Text(error).font(.footnote).foregroundStyle(.negative)
+            }
+        } header: {
+            sectionHeader("Voice proxy")
+        } footer: {
+            Text("The token is stored in Keychain. Keep the xAI key on your server.")
+        }
+        .listRowBackground(Color.surface)
     }
 
     private func sectionHeader(_ title: String) -> some View {

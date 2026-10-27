@@ -117,6 +117,22 @@ final class ArchyFlowUITests: XCTestCase {
         }
     }
 
+    /// The pain ruler sits inside the question's scroll view. A drag that drifts vertically has to keep
+    /// setting the rating instead of being taken over by the scroll view.
+    func testPainRulerFollowsADriftingDrag() {
+        tap("onboarding.start")
+        tap("quiz.goal.understandArch")
+        tap("quiz.diagnosis.none")
+        let ruler = app.descendants(matching: .any)["quiz.pain.rating"]
+        XCTAssertTrue(ruler.waitForExistence(timeout: 5), "Missing pain ruler")
+        sleep(1) // let the step transition settle
+        // From 1 to 8, drifting about 60pt down on the way.
+        ruler.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: ruler.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 1.2)))
+        XCTAssertEqual(ruler.value as? String, "8 out of 10")
+        XCTAssertTrue(app.buttons["quiz.next"].waitForExistence(timeout: 3), "Rating didn't show Continue")
+    }
+
     func testTipsSheetHasReadAloud() {
         app.terminate()
         app.launchArguments = ["-ArchySkipOnboarding", "YES", "-ArchyTab", "scan", "-ArchyRoute", "scan.tips", "-accessibility.voiceGuidance", "NO"]
