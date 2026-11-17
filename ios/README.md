@@ -29,6 +29,15 @@ xcodebuild -project Archy.xcodeproj -scheme Archy -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/ArchyDD CODE_SIGNING_ALLOWED=NO build
 ```
 
+## Release
+
+```sh
+scripts/release.sh             # archive and upload to App Store Connect (TestFlight)
+scripts/release.sh --no-upload # only write build/release/archy.ipa
+```
+
+Each run stamps a new build number from the UTC time. Listing text, reviewer notes and the submission steps are in [`docs/app-store.md`](../docs/app-store.md).
+
 ## Calculations and measurement limitations
 
 - AHI = dorsum height at 50% of full length / truncated length (heel to first metatarsal head).
