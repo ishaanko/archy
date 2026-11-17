@@ -41,7 +41,7 @@ The core math lives in `sim/src/core` with no DOM or three.js imports, so it can
 cd sim && bun install && bun run dev      # web demo on http://localhost:5173
 ```
 
-For the iPhone app, open `ios/Archy.xcodeproj` and run the **Archy** scheme. It needs iOS 26, and scanning needs an iPhone with LiDAR. To build the sensor kit, follow [`hardware/README.md`](hardware/README.md).
+For the iPhone app, open `ios/Archy.xcodeproj` and run the **Archy** scheme. It needs iOS 18.6+, and scanning needs an iPhone with LiDAR. To build the sensor kit, follow [`hardware/README.md`](hardware/README.md).
 
 ## Limits
 
